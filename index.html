@@ -3,133 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Budget Bites | Food Management System</title>
-    <!-- Section 5.2: CSS Integration via Tailwind -->
+    <title>Budget Bites | Intelligent Food Manager</title>
+    <!-- Section 5.2: Framework Integration (Tailwind) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Section 5.3: External Media (Icons) -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .active-tab { background-color: #10b981 !important; color: white !important; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
-        .card { background: white; border-radius: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; }
-        .expiry-warning { animation: flash-red 1.5s infinite; background-color: #fee2e2; color: #b91c1c; }
-        @keyframes flash-red { 0%, 100% { background-color: #fca5a5; } 50% { background-color: #fee2e2; } }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .active-tab { background-color: #10b981 !important; color: white !important; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); }
+        .card { background: white; border-radius: 1.25rem; box-shadow: 0 4px 25px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; }
+        .expiry-warning { animation: flash-red 1.5s infinite; border: 2px solid #ef4444; }
+        @keyframes flash-red { 0%, 100% { background-color: #fee2e2; } 50% { background-color: #fca5a5; } }
     </style>
 </head>
 <body class="min-h-screen pb-20">
 
-    <!-- Section 4: Mediengestaltung - UI/UX -->
-    <header class="bg-white border-b py-8 mb-10">
-        <div class="max-w-5xl mx-auto px-4 text-center">
-            <h1 class="text-4xl font-black text-slate-800 tracking-tight">Budget Bites 🍽️</h1>
-            <p class="text-slate-500 mt-2 font-medium">Intelligent Food Planning & Waste Reduction</p>
+    <!-- Section 4: Mediengestaltung UI -->
+    <header class="bg-white border-b py-6 mb-8 sticky top-0 z-40 backdrop-blur-md bg-white/80">
+        <div class="max-w-5xl mx-auto px-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Budget Bites 🍽️</h1>
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Smart Inventory System</p>
+            </div>
+            <div id="sync-status" class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md font-bold uppercase">Cloud Connected</div>
         </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-4">
-        <!-- Navigation - Section 4.2: Interaction -->
-        <div class="flex flex-wrap justify-center gap-2 mb-10 bg-slate-200/50 p-2 rounded-3xl w-fit mx-auto backdrop-blur-md">
-            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-8 py-3 rounded-2xl font-bold text-slate-600 transition-all">Inventory</button>
-            <button onclick="switchTab('shopping')" id="tab-shopping" class="tab-btn px-8 py-3 rounded-2xl font-bold text-slate-600 transition-all">Shopping List</button>
-            <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn px-8 py-3 rounded-2xl font-bold text-slate-600 transition-all">AI Planner</button>
-            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-8 py-3 rounded-2xl font-bold text-slate-600 transition-all">Dashboard</button>
+        <!-- Section 4.2: Interaction Concept (Tabs) -->
+        <div class="flex flex-wrap justify-center gap-2 mb-8 bg-slate-200/50 p-1.5 rounded-2xl w-fit mx-auto">
+            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-6 py-2.5 rounded-xl font-bold text-slate-600 transition-all text-sm">Inventory</button>
+            <button onclick="switchTab('shopping')" id="tab-shopping" class="tab-btn px-6 py-2.5 rounded-xl font-bold text-slate-600 transition-all text-sm">Shopping</button>
+            <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn px-6 py-2.5 rounded-xl font-bold text-slate-600 transition-all text-sm">AI Recipes</button>
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-6 py-2 rounded-xl font-bold text-slate-600 transition-all text-sm">Dashboard</button>
         </div>
 
-        <!-- Section 6.1: Dynamic Content Area -->
-        <div id="main-content" class="transition-all duration-300"></div>
+        <!-- Section 6.1: Dynamic DOM Container -->
+        <div id="main-content" class="space-y-6"></div>
     </main>
 
-    <!-- Modal for Inputs -->
+    <!-- Modal Form (Section 6.1 Interaction) -->
     <div id="modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="card w-full max-w-md p-10">
-            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-slate-800">Add New Item</h3>
-            <form id="item-form" class="space-y-5">
+        <div class="card w-full max-w-md p-8">
+            <h3 id="modal-title" class="text-xl font-bold mb-6 text-slate-800">Add New Item</h3>
+            <form id="item-form" class="space-y-4">
                 <input type="hidden" id="item-id">
-                <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-1 ml-1">Name</label>
-                    <input type="text" id="item-name" placeholder="e.g. Avocados" required class="w-full border-2 border-slate-100 rounded-xl p-3 outline-none focus:border-emerald-500 bg-slate-50">
-                </div>
+                <input type="text" id="item-name" placeholder="Item Name (e.g. Milk)" required class="w-full border-2 border-slate-100 rounded-xl p-3 outline-none focus:border-emerald-500">
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="number" id="item-qty" value="1" min="1" class="w-full border-2 border-slate-100 rounded-xl p-3 bg-slate-50">
-                    <input type="text" id="item-unit" placeholder="Unit (kg, pcs)" class="w-full border-2 border-slate-100 rounded-xl p-3 bg-slate-50">
+                    <input type="number" id="item-qty" value="1" min="1" class="w-full border-2 border-slate-100 rounded-xl p-3">
+                    <input type="text" id="item-unit" placeholder="Unit (kg, pcs)" class="w-full border-2 border-slate-100 rounded-xl p-3">
                 </div>
-                <div id="expiry-section" class="hidden pt-6 border-t mt-4">
-                    <label class="block text-sm font-bold text-emerald-700 mb-2">Shelf Life Algorithm (Section 6.3)</label>
-                    <input type="number" id="shelf-life" placeholder="Days of freshness left" class="w-full border-2 border-emerald-100 rounded-xl p-3 bg-emerald-50/50">
-                    <p class="text-[11px] text-slate-400 mt-2 italic">The system uses the Date API to predict expiration.</p>
+                <div id="expiry-section" class="hidden pt-4 border-t">
+                    <label class="block text-xs font-bold text-emerald-600 mb-2 uppercase">Freshness Logic (Days until Expired)</label>
+                    <input type="number" id="shelf-life" placeholder="e.g. 7" class="w-full border-2 border-emerald-50 rounded-xl p-3 bg-emerald-50/30">
                 </div>
-                <div class="flex gap-4 pt-6">
-                    <button type="button" onclick="closeModal()" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
-                    <button type="submit" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all">Save Item</button>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeModal()" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-500">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg">Save</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Section 6: JS & Web Services -->
+    <!-- Section 6: JavaScript Application Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: REPLACE THESE EMPTY STRINGS WITH YOUR FIREBASE CONFIG KEYS
+        // --- STEP 1: INSERT YOUR FIREBASE CONFIG HERE ---
+        // Get this from: Firebase Console -> Project Settings -> General -> Your Apps
         const firebaseConfig = {
-            apiKey: "",
-            authDomain: "",
-            projectId: "",
-            storageBucket: "",
-            messagingSenderId: "",
-            appId: ""
+            apiKey: "PASTE_YOUR_API_KEY_HERE",
+            authDomain: "PASTE_HERE",
+            projectId: "PASTE_HERE",
+            storageBucket: "PASTE_HERE",
+            messagingSenderId: "PASTE_HERE",
+            appId: "PASTE_HERE"
         };
 
-        const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
-        const geminiKey = ""; 
+        // --- STEP 2: INSERT YOUR AI API KEY HERE ---
+        const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
+        const aiKey = "PASTE_YOUR_AI_KEY_HERE"; 
 
-        let db, auth, userId = null, inventory = [], shoppingList = [], historicalWaste = 0, currentTab = 'inventory';
+        let db, auth, userId = null, inventory = [], shoppingList = [], waste = 0, activeTab = 'inventory';
 
-        // Section 3.3: Authentication
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
+        // Firebase Connection Logic (Section 3.3)
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            onAuthStateChanged(auth, async (u) => {
+                if (u) { userId = u.uid; sync(); } else { await signInAnonymously(auth); }
+            });
+        } catch(e) { console.error("Database connection failed. Check your config keys!"); }
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) { userId = user.uid; startDataSync(); } 
-            else { await signInAnonymously(auth); }
-        });
-
-        // Section 3.1: Client-Server Communication
-        function startDataSync() {
-            onSnapshot(doc(db, 'food_manager_pro', userId), (snap) => {
-                if (snap.exists()) {
-                    const data = snap.data();
-                    inventory = data.inventory || [];
-                    shoppingList = data.shoppingList || [];
-                    historicalWaste = data.historicalWaste || 0;
-                    logicCheck();
-                    render();
-                } else { pushUpdate(); }
+        function sync() {
+            onSnapshot(doc(db, 'budget_bites_live', userId), (s) => {
+                if (s.exists()) {
+                    const d = s.data();
+                    inventory = d.inventory || [];
+                    shoppingList = d.shoppingList || [];
+                    waste = d.waste || 0;
+                    logic(); render();
+                } else { push(); }
             });
         }
 
-        async function pushUpdate() {
-            if (userId) await setDoc(doc(db, 'food_manager_pro', userId), { inventory, shoppingList, historicalWaste });
+        async function push() {
+            if (userId) await setDoc(doc(db, 'budget_bites_live', userId), { inventory, shoppingList, waste });
         }
 
-        function logicCheck() {
-            const today = new Date();
-            const startLen = inventory.length;
+        function logic() {
+            const now = new Date();
+            const start = inventory.length;
             inventory = inventory.filter(i => {
-                if (i.expiry && new Date(i.expiry) < today) { historicalWaste++; return false; }
+                if (i.expiry && new Date(i.expiry) < now) { waste++; return false; }
                 return true;
             });
-            if (inventory.length !== startLen) pushUpdate();
+            if (inventory.length !== start) push();
         }
 
-        window.switchTab = (t) => { currentTab = t; render(); };
+        // DOM UI Handlers (Section 6.1)
+        window.switchTab = (t) => { activeTab = t; render(); };
         window.openModal = (id = null) => {
-            document.getElementById('item-form').reset();
+            const form = document.getElementById('item-form');
+            form.reset();
             document.getElementById('item-id').value = id || '';
-            document.getElementById('expiry-section').classList.toggle('hidden', currentTab !== 'inventory');
+            document.getElementById('expiry-section').classList.toggle('hidden', activeTab !== 'inventory');
             document.getElementById('modal').classList.remove('hidden');
         };
         window.closeModal = () => document.getElementById('modal').classList.add('hidden');
@@ -142,7 +144,7 @@
             const unit = document.getElementById('item-unit').value;
             let expiry = "";
 
-            if (currentTab === 'inventory') {
+            if (activeTab === 'inventory') {
                 const days = parseInt(document.getElementById('shelf-life').value);
                 if (days) {
                     const d = new Date(); d.setDate(d.getDate() + days);
@@ -156,65 +158,73 @@
                 if (idx > -1) shoppingList[idx] = { id, name, quantity: qty, unit };
                 else shoppingList.push({ id, name, quantity: qty, unit });
             }
-            pushUpdate(); closeModal();
+            push(); closeModal();
         };
 
-        window.moveItem = (id) => {
-            if (currentTab === 'shopping') {
+        window.move = (id) => {
+            if (activeTab === 'shopping') {
                 const i = shoppingList.find(x => x.id === id);
                 shoppingList = shoppingList.filter(x => x.id !== id);
                 inventory.push({ ...i, expiry: "PENDING" });
-                currentTab = 'inventory';
+                activeTab = 'inventory';
             } else {
                 const i = inventory.find(x => x.id === id);
                 inventory = inventory.filter(x => x.id !== id);
                 shoppingList.push({ ...i, expiry: null });
             }
-            pushUpdate();
+            push();
         };
 
-        window.deleteItem = (id) => {
-            if (currentTab === 'inventory') inventory = inventory.filter(i => i.id !== id);
+        window.del = (id) => {
+            if (activeTab === 'inventory') inventory = inventory.filter(i => i.id !== id);
             else shoppingList = shoppingList.filter(i => i.id !== id);
-            pushUpdate();
+            push();
         };
 
-        // Section 3.2: AI Web Service (Microservice)
-        async function askAI(prompt, system) {
+        // Section 3.2: AI Microservice Calls
+        async function ai(p, s) {
             try {
-                const res = await fetch(`${GEMINI_API_URL}?key=${geminiKey}`, {
-                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: system }] } })
+                const r = await fetch(`${GEMINI_URL}?key=${aiKey}`, {
+                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: p }] }], systemInstruction: { parts: [{ text: s }] } })
                 });
-                const j = await res.json();
+                const j = await r.json();
                 return j.candidates[0].content.parts[0].text;
-            } catch (e) { return "AI Service offline."; }
+            } catch (e) { return "AI connection failed. Check your API key."; }
         }
 
-        window.getAISuggest = async () => {
-            const el = document.getElementById('ai-box');
-            el.innerHTML = "<div class='animate-pulse'>Analyzing food patterns...</div>";
-            el.innerText = await askAI(`Shopping: ${shoppingList.map(i => i.name).join(', ')}. Recommend 3 staples.`, "Budget Specialist.");
+        window.getShopAI = async () => {
+            const b = document.getElementById('ai-shop');
+            b.innerText = "Consulting AI analyst...";
+            b.innerText = await ai(`Current list: ${shoppingList.map(i => i.name).join(', ')}. Suggest 3 budget staples.`, "Budget Expert.");
         };
 
-        window.getAIRecipe = async () => {
-            const el = document.getElementById('recipe-box');
-            el.innerHTML = "<div class='animate-pulse text-center'>Generating chef-curated recipe...</div>";
-            el.innerText = await askAI(`Kitchen: ${inventory.map(i => i.name).join(', ')}. Give 1 simple zero-waste recipe.`, "Chef.");
+        window.getMealAI = async () => {
+            const b = document.getElementById('ai-meal');
+            b.innerText = "Chef is thinking...";
+            b.innerText = await ai(`Stock: ${inventory.map(i => i.name).join(', ')}. One recipe.`, "Zero-waste Chef.");
         };
 
-        // Section 6.1: UI Rendering
         function render() {
             const root = document.getElementById('main-content');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active-tab', b.id === `tab-${currentTab}`));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active-tab', btn.id === `tab-${activeTab}`));
             
-            if (currentTab === 'inventory') {
-                root.innerHTML = `<div class="card p-8"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-bold text-slate-800">In My Kitchen</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-emerald-600 transition-all">Add Item</button></div><div class="space-y-4">${inventory.map(i => `<div class="flex justify-between p-5 border-2 border-slate-50 rounded-2xl items-center hover:border-emerald-100 transition-all"><div><p class="font-bold text-slate-800">${i.name}</p><p class="text-xs text-slate-400 font-medium">${i.quantity} ${i.unit} • Expires: ${i.expiry || 'Not set'}</p></div><div class="flex gap-3"><button onclick="moveItem('${i.id}')" class="text-xs font-black text-amber-600 uppercase tracking-tighter">Use / Refill</button><button onclick="deleteItem('${i.id}')" class="text-xs font-black text-red-400 uppercase tracking-tighter">Del</button></div></div>`).join('') || '<p class="text-center text-slate-300 py-12 italic">Kitchen is empty.</p>'}</div></div>`;
-            } else if (currentTab === 'shopping') {
-                root.innerHTML = `<div class="card p-8"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-bold text-slate-800">Shopping List</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md">Add Item</button></div><div class="space-y-4 mb-8">${shoppingList.map(i => `<div class="flex justify-between p-5 border-2 border-slate-50 rounded-2xl bg-slate-50/50 items-center"><p class="font-bold text-slate-700">${i.name} (${i.quantity})</p><button onclick="moveItem('${i.id}')" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase">Mark Bought</button></div>`).join('') || '<p class="text-center text-slate-300 py-12 italic">No shopping needed.</p>'}</div><div class="bg-indigo-50 p-6 rounded-2xl border-2 border-indigo-100"><button onclick="getAISuggest()" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded-lg font-black uppercase shadow-md shadow-indigo-100 mb-3">AI Shopping Insight</button><div id="ai-box" class="text-xs italic text-indigo-700 leading-relaxed font-medium"></div></div></div>`;
-            } else if (currentTab === 'planner') {
-                root.innerHTML = `<div class="card p-10 text-center"><h2 class="text-2xl font-bold mb-6 text-slate-800">AI Meal Planner</h2><p class="text-slate-500 mb-8 text-sm">We find recipes based only on your ${inventory.length} kitchen items.</p><button onclick="getAIRecipe()" class="bg-purple-600 text-white px-10 py-4 rounded-full font-black shadow-xl shadow-purple-200 uppercase tracking-wide hover:bg-purple-700 transition-all">Generate Zero-Waste Recipe</button><div id="recipe-box" class="mt-10 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div></div>`;
+            if (activeTab === 'inventory') {
+                root.innerHTML = `<div class="card p-6"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-700">Kitchen Pantry</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Add Item</button></div><div class="space-y-3">${inventory.map(i => `
+                    <div class="flex justify-between p-4 border rounded-2xl items-center bg-slate-50/50">
+                        <div><p class="font-bold text-slate-800">${i.name}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${i.quantity} ${i.unit} • Expires: ${i.expiry || 'PENDING'}</p></div>
+                        <div class="flex gap-3"><button onclick="move('${i.id}')" class="text-[10px] font-black text-amber-600 uppercase">Need Again</button><button onclick="del('${i.id}')" class="text-[10px] font-black text-rose-400 uppercase">Delete</button></div>
+                    </div>`).join('') || '<div class="py-12 text-center text-slate-300 italic">No food in inventory.</div>'}</div></div>`;
+            } else if (activeTab === 'shopping') {
+                root.innerHTML = `<div class="card p-6"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-700">To Buy</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Add Item</button></div><div class="space-y-3 mb-6">${shoppingList.map(i => `
+                    <div class="flex justify-between p-4 border rounded-2xl bg-emerald-50/20 items-center border-emerald-100">
+                        <p class="font-bold text-slate-700">${i.name} <span class="text-xs font-normal">(${i.quantity})</span></p>
+                        <button onclick="move('${i.id}')" class="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-sm">Mark Bought</button>
+                    </div>`).join('') || '<div class="py-12 text-center text-slate-300 italic">List is empty.</div>'}</div>
+                    <div class="bg-indigo-50 p-5 rounded-2xl border border-indigo-100"><button onclick="getShopAI()" class="text-[10px] bg-indigo-600 text-white px-3 py-2 rounded-lg font-black uppercase shadow-md shadow-indigo-100 mb-3 flex items-center">AI Suggestions</button><div id="ai-shop" class="text-xs italic text-indigo-700 leading-relaxed font-medium"></div></div></div>`;
+            } else if (activeTab === 'planner') {
+                root.innerHTML = `<div class="card p-8 text-center"><h2 class="text-xl font-bold mb-4 text-slate-700">AI Meal Planner</h2><button onclick="getMealAI()" class="bg-purple-600 text-white px-8 py-4 rounded-full font-black shadow-xl shadow-purple-200 uppercase tracking-widest text-xs">Generate Recipe</button><div id="ai-meal" class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-600"></div></div>`;
             } else {
-                root.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="card p-10 text-center bg-rose-50 border-2 border-rose-100"><p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-3">Total Waste Count</p><h3 class="text-6xl font-black text-rose-900">${historicalWaste}</h3></div><div class="card p-10 text-center bg-emerald-50 border-2 border-emerald-100"><p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3">Current Pantry</p><h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3></div></div>`;
+                root.innerHTML = `<div class="grid grid-cols-2 gap-4"><div class="card p-8 text-center bg-rose-50 border-rose-100"><p class="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-3">Total Waste</p><h3 class="text-5xl font-black text-rose-900">${waste}</h3></div><div class="card p-8 text-center bg-emerald-50 border-emerald-100"><p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3">Kitchen Size</p><h3 class="text-5xl font-black text-emerald-900">${inventory.length}</h3></div></div>`;
             }
             if (window.lucide) lucide.createIcons();
         }
