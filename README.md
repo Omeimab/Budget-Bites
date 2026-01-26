@@ -11,11 +11,12 @@ A small web app for managing monthly groceries to reduce food waste:
 - Cloud sync with Firebase (anonymous login)
 - Expired items are automatically counted as waste
 
-## Tech
+ ## Tech
 - HTML + TailwindCSS
 - Vanilla JavaScript (ES Modules)
 - Firebase Auth + Firestore
 
+  
 ## Notes / Limitations
 - Recommendation logic is rule-based (no external AI API key in frontend)
 - Data is stored per anonymous user id
