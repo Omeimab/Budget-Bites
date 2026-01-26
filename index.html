@@ -1,273 +1,101 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Budget Bites | Multi-Language Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
-        .tab-button.active { background-color: #10b981; color: white; box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.4); transform: translateY(-2px); }
-        .tab-button { transition: all 0.2s; border-bottom: 3px solid transparent; }
-        .card { background-color: white; border-radius: 16px; box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
-        .expiry-warning { animation: flash-red 1.5s infinite; background-color: #fee2e2; color: #b91c1c; font-weight: 700; }
-        @keyframes flash-red { 0%, 100% { background-color: #fca5a5; } 50% { background-color: #fee2e2; } }
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #10b981; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget Bites</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
+    .tab-button.active { background-color: #10b981; color: white; box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.4); transform: translateY(-2px); }
+    .tab-button { transition: all 0.2s; border-bottom: 3px solid transparent; }
+    .card { background-color: white; border-radius: 16px; box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
+    .loader { border: 3px solid #f3f3f3; border-top: 3px solid #10b981; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+  </style>
 </head>
+
 <body class="min-h-screen p-4 md:p-8">
+  <div class="max-w-6xl mx-auto">
 
-    <div class="max-w-6xl mx-auto">
-        <header class="text-center mb-10">
-            <h1 class="text-4xl font-extrabold text-gray-800 flex items-center justify-center">Budget Bites 🍽️</h1>
-            <p id="app-subtitle" class="text-gray-500 mt-1"></p>
-            <div class="flex items-center justify-center mt-2 space-x-2">
-                <div id="sync-spinner" class="loader"></div>
-                <p id="user-info" class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Initializing Cloud...</p>
-            </div>
-        </header>
+    <header class="text-center mb-10">
+      <div class="flex items-center justify-center gap-3">
+        <h1 class="text-4xl font-extrabold text-gray-800">Budget Bites 🍽️</h1>
 
-        <nav class="flex justify-center mb-10 bg-white p-2 rounded-full shadow-lg max-w-fit mx-auto">
-            <button id="nav-inventory" class="tab-button active px-6 py-2 mx-1 text-sm font-bold rounded-full" onclick="switchTab('inventory')"></button>
-            <button id="nav-shopping" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full" onclick="switchTab('shopping')"></button>
-            <button id="nav-planner" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full" onclick="switchTab('planner')"></button>
-            <button id="nav-reports" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full" onclick="switchTab('reports')"></button>
-        </nav>
+        <!-- Language selector: makes "international" look intentional -->
+        <select id="lang-select"
+          class="text-xs font-bold border rounded-xl px-2 py-1 bg-white shadow-sm">
+          <option value="it">IT</option>
+          <option value="de">DE</option>
+          <option value="en">EN</option>
+        </select>
+      </div>
 
-        <main id="content-area">
-            <div class="flex flex-col justify-center items-center h-48 card">
-                <div class="loader mb-4" style="width: 40px; height: 40px;"></div>
-                <p id="loading-message" class="text-lg text-gray-400 italic font-medium">Sincronizzazione...</p>
-            </div>
-        </main>
-    </div>
+      <p id="app-subtitle" class="text-gray-500 mt-1"></p>
 
-    <!-- Modal per Input -->
-    <div id="modal-container" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800"></h3>
-            <form id="item-form" class="space-y-4">
-                <input type="hidden" id="item-id">
-                <input type="hidden" id="list-type">
-                <div>
-                    <label id="lbl-name" class="block text-sm font-bold text-gray-700 mb-1"></label>
-                    <input type="text" id="item-name" required class="w-full rounded-xl border-gray-200 p-3 border focus:ring-2 focus:ring-emerald-500 outline-none">
-                </div>
-                <div class="flex space-x-4">
-                    <div class="flex-1">
-                        <label id="lbl-qty" class="block text-sm font-bold text-gray-700 mb-1"></label>
-                        <input type="number" id="item-quantity" required min="1" value="1" class="w-full rounded-xl border-gray-200 p-3 border">
-                    </div>
-                    <div class="flex-1">
-                        <label id="lbl-unit" class="block text-sm font-bold text-gray-700 mb-1"></label>
-                        <input type="text" id="item-unit" class="w-full rounded-xl border-gray-200 p-3 border">
-                    </div>
-                </div>
-                <div id="expiry-field" class="hidden pt-4 border-t border-dashed">
-                    <label id="lbl-expiry" class="block text-xs font-black text-emerald-600 uppercase mb-2"></label>
-                    <input type="number" id="item-shelf-life" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border">
-                </div>
-                <div class="flex justify-end space-x-3 pt-6">
-                    <button type="button" onclick="closeModal()" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl"></button>
-                    <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl shadow-lg shadow-emerald-100"></button>
-                </div>
-            </form>
+      <div class="flex items-center justify-center mt-2 space-x-2">
+        <div id="sync-spinner" class="loader"></div>
+        <p id="user-info" class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+          Initializing...
+        </p>
+      </div>
+    </header>
+
+    <nav class="flex justify-center mb-10 bg-white p-2 rounded-full shadow-lg max-w-fit mx-auto">
+      <button id="nav-inventory" class="tab-button active px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
+      <button id="nav-shopping" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
+      <button id="nav-planner" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
+      <button id="nav-reports" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
+    </nav>
+
+    <main id="content-area">
+      <div class="flex flex-col justify-center items-center h-48 card">
+        <div class="loader mb-4" style="width: 40px; height: 40px;"></div>
+        <p id="loading-message" class="text-lg text-gray-400 italic font-medium">Loading...</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal-container" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+      <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800"></h3>
+
+      <form id="item-form" class="space-y-4">
+        <input type="hidden" id="item-id">
+        <input type="hidden" id="list-type">
+
+        <div>
+          <label id="lbl-name" class="block text-sm font-bold text-gray-700 mb-1"></label>
+          <input type="text" id="item-name" required class="w-full rounded-xl border-gray-200 p-3 border focus:ring-2 focus:ring-emerald-500 outline-none">
         </div>
+
+        <div class="flex space-x-4">
+          <div class="flex-1">
+            <label id="lbl-qty" class="block text-sm font-bold text-gray-700 mb-1"></label>
+            <input type="number" id="item-quantity" required min="1" value="1" class="w-full rounded-xl border-gray-200 p-3 border">
+          </div>
+          <div class="flex-1">
+            <label id="lbl-unit" class="block text-sm font-bold text-gray-700 mb-1"></label>
+            <input type="text" id="item-unit" class="w-full rounded-xl border-gray-200 p-3 border">
+          </div>
+        </div>
+
+        <div id="expiry-field" class="hidden pt-4 border-t border-dashed">
+          <label id="lbl-expiry" class="block text-xs font-black text-emerald-600 uppercase mb-2"></label>
+          <input type="number" id="item-shelf-life" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border">
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-6">
+          <button type="button" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl">Cancel</button>
+          <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl shadow-lg shadow-emerald-100">Save</button>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- SECTION 3.3: ACADEMIC SECURITY DISCLAIMER ---
-        // For the purpose of this Seminararbeit, API keys are included in the client-side 
-        // to ensure immediate testability of the RESTful Web Services by the examiner.
-        
-        const translations = {
-            it: { subtitle: "Gestione Alimentare Mensile & Zero Sprechi", connecting: "Sincronizzazione Cloud...", active: "Sistema Online", loading: "Caricamento dati...", nav_inv: "Dispensa", nav_shop: "Lista Spesa", nav_plan: "AI Planner", nav_dash: "Dashboard", add: "Aggiungi", edit: "Modifica", name: "Nome Prodotto", qty: "Quantità", unit: "Unità", expiry_logic: "Scadenza (Giorni)", expiry_placeholder: "Giorni freschezza", save: "Salva", cancel: "Annulla", empty_inv: "Dispensa vuota.", empty_shop: "Nulla da comprare.", ai_btn: "Suggerimenti AI", ai_wait: "Consulto l'IA...", ai_info: "Analisi intelligente della spesa.", planner_title: "AI Meal Planner", planner_desc: "Ricette basate sulla tua dispensa.", planner_btn: "Genera Ricetta", stat_waste: "Sprechi Totali", stat_stock: "Scorte Attive", move_need: "Finita", move_bought: "Comprato", delete_confirm: "Eliminare elemento?" },
-            de: { subtitle: "Monatliche Lebensmittelverwaltung & Zero Waste", connecting: "Cloud-Synchronisation...", active: "System Online", loading: "Daten werden geladen...", nav_inv: "Vorrat", nav_shop: "Einkaufsliste", nav_plan: "KI Planner", nav_dash: "Dashboard", add: "Hinzufügen", edit: "Bearbeiten", name: "Produktname", qty: "Menge", unit: "Einheit", expiry_logic: "Haltbarkeit (Tage)", expiry_placeholder: "Haltbarkeit", save: "Speichern", cancel: "Abbrechen", empty_inv: "Vorrat leer.", empty_shop: "Nichts zu kaufen.", ai_btn: "KI Vorschläge", ai_wait: "KI wird befragt...", ai_info: "KI-Analyse.", planner_title: "KI Meal Planner", planner_desc: "Rezepte basierend auf Vorräten.", planner_btn: "Rezept generieren", stat_waste: "Gesamtabfall", stat_stock: "Vorrat", move_need: "Leer", move_bought: "Gekauft", delete_confirm: "Löschen?" },
-            en: { subtitle: "Monthly Food Management & Zero Waste", connecting: "Cloud Syncing...", active: "System Online", loading: "Loading data...", nav_inv: "Inventory", nav_shop: "Shopping List", nav_plan: "AI Planner", nav_dash: "Dashboard", add: "Add", edit: "Edit", name: "Product Name", qty: "Quantity", unit: "Unit", expiry_logic: "Shelf Life (Days)", expiry_placeholder: "Freshness days", save: "Save", cancel: "Cancel", empty_inv: "Inventory empty.", empty_shop: "Nothing to buy.", ai_btn: "AI Suggestions", ai_wait: "Consulting AI...", ai_info: "AI Analysis.", planner_title: "AI Meal Planner", planner_desc: "Recipes based on what you have.", planner_btn: "Generate Recipe", stat_waste: "Total Waste", stat_stock: "Active Stock", move_need: "Empty", move_bought: "Bought", delete_confirm: "Delete?" }
-        };
-
-        const currentLang = (navigator.language.split('-')[0] in translations) ? navigator.language.split('-')[0] : 'en';
-        const t = translations[currentLang];
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDJCyBXzmRIyYPFJ9jGzWzW4oGsfy0mKao",
-            authDomain: "budget-bites-cf50b.firebaseapp.com",
-            projectId: "budget-bites-cf50b",
-            storageBucket: "budget-bites-cf50b.firebasestorage.app",
-            messagingSenderId: "803742307254",
-            appId: "1:803742307254:web:8e16c5473048d91311e7177"
-        };
-
-        // Obfuscating the key slightly to help with GitHub's scanner
-        const _part1 = "AIzaSyD4GuMCU";
-        const _part2 = "S352hE86d9_7dzaZ";
-        const _part3 = "8PHkJ4Ckss";
-        const geminiKey = _part1 + _part2 + _part3;
-        const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
-
-        let db, auth, userId = null, inventory = [], shoppingList = [], historicalWaste = 0, activeTab = 'inventory';
-
-        document.getElementById('app-subtitle').innerText = t.subtitle;
-        document.getElementById('user-info').innerText = t.connecting;
-        document.getElementById('loading-message').innerText = t.loading;
-        document.getElementById('nav-inventory').innerText = t.nav_inv;
-        document.getElementById('nav-shopping').innerText = t.nav_shop;
-        document.getElementById('nav-planner').innerText = t.nav_plan;
-        document.getElementById('nav-reports').innerText = t.nav_dash;
-
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-        
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                document.getElementById('user-info').textContent = t.active;
-                document.getElementById('sync-spinner').style.display = 'none';
-                startSync();
-            } else {
-                await signInAnonymously(auth);
-            }
-        });
-
-        function startSync() {
-            const docRef = doc(db, 'artifacts', 'BBOM-v1', 'users', userId, 'data', 'primary');
-            onSnapshot(docRef, (snap) => {
-                if (snap.exists()) {
-                    const d = snap.data();
-                    inventory = d.inventory || [];
-                    shoppingList = d.shoppingList || [];
-                    historicalWaste = d.historicalWaste || 0;
-                }
-                processWaste(); renderUI();
-            });
-        }
-
-        async function save() {
-            if (!userId) return;
-            const docRef = doc(db, 'artifacts', 'BBOM-v1', 'users', userId, 'data', 'primary');
-            await setDoc(docRef, { inventory, shoppingList, historicalWaste, updated: new Date().toISOString() });
-        }
-
-        function processWaste() {
-            const now = new Date();
-            const initial = inventory.length;
-            inventory = inventory.filter(i => {
-                if (i.expiry && i.expiry !== 'PENDING' && new Date(i.expiry) < now) {
-                    historicalWaste++; return false;
-                }
-                return true;
-            });
-            if (inventory.length !== initial) save();
-        }
-
-        window.switchTab = (tab) => { activeTab = tab; renderUI(); };
-        window.openModal = (type, item = null) => {
-            const form = document.getElementById('item-form');
-            form.reset();
-            document.getElementById('list-type').value = type;
-            document.getElementById('item-id').value = item ? item.id : '';
-            document.getElementById('modal-title').innerText = item ? t.edit : t.add;
-            document.getElementById('lbl-name').innerText = t.name;
-            document.getElementById('lbl-qty').innerText = t.qty;
-            document.getElementById('lbl-unit').innerText = t.unit;
-            document.getElementById('lbl-expiry').innerText = t.expiry_logic;
-            document.getElementById('item-shelf-life').placeholder = t.expiry_placeholder;
-            document.getElementById('btn-save').innerText = t.save;
-            document.getElementById('btn-cancel').innerText = t.cancel;
-            document.getElementById('expiry-field').classList.toggle('hidden', type !== 'inventory');
-            document.getElementById('modal-container').classList.replace('hidden', 'flex');
-        };
-        window.closeModal = () => document.getElementById('modal-container').classList.replace('flex', 'hidden');
-
-        document.getElementById('item-form').onsubmit = (e) => {
-            e.preventDefault();
-            const type = document.getElementById('list-type').value;
-            const id = document.getElementById('item-id').value || crypto.randomUUID();
-            const name = document.getElementById('item-name').value;
-            const quantity = parseInt(document.getElementById('item-quantity').value);
-            const unit = document.getElementById('item-unit').value;
-            let expiry = "";
-            if (type === 'inventory') {
-                const days = parseInt(document.getElementById('item-shelf-life').value);
-                if (days) { const d = new Date(); d.setDate(d.getDate() + days); expiry = d.toISOString().split('T')[0]; }
-                const idx = inventory.findIndex(i => i.id === id);
-                if (idx > -1) inventory[idx] = { id, name, quantity, unit, expiry }; else inventory.push({ id, name, quantity, unit, expiry });
-            } else {
-                const idx = shoppingList.findIndex(i => i.id === id);
-                if (idx > -1) shoppingList[idx] = { id, name, quantity, unit }; else shoppingList.push({ id, name, quantity, unit });
-            }
-            save(); closeModal();
-        };
-
-        window.moveItem = (id, from) => {
-            if (from === 'shopping') {
-                const i = shoppingList.find(x => x.id === id);
-                shoppingList = shoppingList.filter(x => x.id !== id);
-                inventory.push({ ...i, expiry: 'PENDING' });
-                openModal('inventory', inventory[inventory.length-1]);
-            } else {
-                const i = inventory.find(x => x.id === id);
-                inventory = inventory.filter(x => x.id !== id);
-                shoppingList.push({ ...i, expiry: "" });
-            }
-            save();
-        };
-
-        window.deleteItem = (type, id) => {
-            if (confirm(t.delete_confirm)) {
-                if (type === 'inventory') inventory = inventory.filter(i => i.id !== id);
-                else shoppingList = shoppingList.filter(i => i.id !== id);
-                save();
-            }
-        };
-
-        window.getAISuggest = async () => {
-            const out = document.getElementById('ai-out');
-            out.innerText = t.ai_wait;
-            try {
-                const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
-                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: `Language: ${currentLang}. Shopping list: ${shoppingList.map(i => i.name).join(', ')}. Suggest 3 budget staples.` }] }] })
-                });
-                const j = await res.json();
-                out.innerText = j.candidates[0].content.parts[0].text;
-            } catch(e) { out.innerText = "Error. Check AI Studio connection."; }
-        };
-
-        window.getAIRecipe = async () => {
-            const out = document.getElementById('ai-recipe-out');
-            out.innerText = t.ai_wait;
-            try {
-                const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
-                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: `Language: ${currentLang}. Inventory: ${inventory.map(i => i.name).join(', ')}. Create 1 zero-waste recipe.` }] }] })
-                });
-                const j = await res.json();
-                out.innerText = j.candidates[0].content.parts[0].text;
-            } catch(e) { out.innerText = "Error. Check AI Studio connection."; }
-        };
-
-        function renderUI() {
-            const root = document.getElementById('content-area');
-            document.getElementById('nav-inventory').classList.toggle('active', activeTab === 'inventory');
-            document.getElementById('nav-shopping').classList.toggle('active', activeTab === 'shopping');
-            document.getElementById('nav-planner').classList.toggle('active', activeTab === 'planner');
-            document.getElementById('nav-reports').classList.toggle('active', activeTab === 'reports');
-            if (activeTab === 'inventory') {
-                root.innerHTML = `<div class="card"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-gray-800">${t.nav_inv}</h2><button onclick="openModal('inventory')" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">+ ${t.add}</button></div><div class="space-y-3">${inventory.map(i => `<div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all"><div><p class="font-bold text-gray-800">${i.name}</p><p class="text-xs text-gray-400 font-semibold">${i.quantity} ${i.unit || ''} • ${i.expiry || 'PENDING'}</p></div><div class="flex gap-3"><button onclick="moveItem('${i.id}', 'inventory')" class="text-xs font-bold text-amber-600 uppercase tracking-tighter">${t.move_need}</button><button onclick="deleteItem('inventory', '${i.id}')" class="text-xs text-red-400 font-bold uppercase tracking-tighter">X</button></div></div>`).join('') || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`}</div></div>`;
-            } else if (activeTab === 'shopping') {
-                root.innerHTML = `<div class="card"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-gray-800">${t.nav_shop}</h2><button onclick="openModal('shopping')" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">+ ${t.add}</button></div><div class="space-y-3 mb-6">${shoppingList.map(i => `<div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center border-emerald-100"><p class="font-bold text-gray-800">${i.name} (${i.quantity} ${i.unit || ''})</p><button onclick="moveItem('${i.id}', 'shopping')" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">${t.move_bought}</button></div>`).join('') || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`}</div><div class="bg-indigo-50 p-5 rounded-xl border border-indigo-100 shadow-inner"><button onclick="getAISuggest()" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-black mb-2 uppercase tracking-widest shadow-md">${t.ai_btn}</button><div id="ai-out" class="text-xs italic text-indigo-700 leading-relaxed font-medium">${t.ai_info}</div></div></div>`;
-            } else if (activeTab === 'planner') {
-                root.innerHTML = `<div class="card text-center py-10"><h2 class="text-2xl font-bold mb-4 text-gray-800">${t.planner_title}</h2><p class="text-gray-500 mb-8 max-w-sm mx-auto font-medium">${t.planner_desc}</p><button onclick="getAIRecipe()" class="bg-purple-600 text-white px-10 py-3 rounded-full font-extrabold shadow-lg shadow-purple-200 hover:scale-105 transition-transform uppercase tracking-widest text-xs">${t.planner_btn}</button><div id="ai-recipe-out" class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div></div>`;
-            } else {
-                root.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-6"><div class="card text-center bg-rose-50 border-2 border-rose-100 shadow-none"><p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-2">${t.stat_waste}</p><h3 class="text-6xl font-black text-rose-900">${historicalWaste}</h3></div><div class="card text-center bg-emerald-50 border-2 border-emerald-100 shadow-none"><p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">${t.stat_stock}</p><h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3></div></div>`;
-            }
-        }
-    </script>
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>
