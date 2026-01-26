@@ -1,7 +1,8 @@
 import { translations, detectDefaultLang, setLang } from "./i18n.js";
 import { initFirebase, signInAndSync, saveData } from "./firebase.js";
 import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
-import { getSmartSuggestions, getSmartRecipe } from "./ai_mock.js";
+import { getSmartRecipe } from "./ai_mock.js";
+
 
 let activeTab = "inventory";
 let userId = null;
