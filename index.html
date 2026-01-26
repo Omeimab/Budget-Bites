@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Bites | Intelligent Food Management</title>
+    <!-- Script Section 5.2: CSS & Framework Integration -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .active-tab { background-color: #10b981 !important; color: white !important; }
+        .card { background: white; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        .expiry-warning { animation: flash-red 1.5s infinite; }
+        @keyframes flash-red { 0%, 100% { background-color: #fca5a5; } 50% { background-color: #fee2e2; } }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+
+    <!-- Script Section 4: Mediengestaltung (UI/UX Layout) -->
+    <header class="bg-white border-b py-6 mb-8">
+        <div class="max-w-5xl mx-auto px-4 text-center">
+            <h1 class="text-3xl font-extrabold text-slate-800">Budget Bites 🍽️</h1>
+            <p class="text-slate-500">Intelligent Monthly Food Planning & Waste Reduction</p>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4">
+        <!-- Navigation - Script Section 4.2: Interaction Concept -->
+        <div class="flex flex-wrap justify-center gap-2 mb-8 bg-slate-200/50 p-2 rounded-2xl w-fit mx-auto">
+            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-6 py-2 rounded-xl font-semibold text-slate-600 transition-all">Inventory</button>
+            <button onclick="switchTab('shopping')" id="tab-shopping" class="tab-btn px-6 py-2 rounded-xl font-semibold text-slate-600 transition-all">Shopping List</button>
+            <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn px-6 py-2 rounded-xl font-semibold text-slate-600 transition-all text-sm">AI Meal Planner</button>
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-6 py-2 rounded-xl font-semibold text-slate-600 transition-all">Dashboard</button>
+        </div>
+
+        <!-- Script Section 6.1: Dynamic DOM Content Area -->
+        <div id="main-content" class="min-h-[400px]">
+            <div class="text-center py-20 text-slate-400 italic">Initializing modules...</div>
+        </div>
+    </main>
+
+    <!-- Modal for User Input (HTML5 Dialog Concept) -->
+    <div id="modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="card w-full max-w-md p-8">
+            <h3 id="modal-title" class="text-xl font-bold mb-6 text-slate-800">Add Item</h3>
+            <form id="item-form" class="space-y-4">
+                <input type="hidden" id="item-id">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
+                    <input type="text" id="item-name" required class="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
+                        <input type="number" id="item-qty" value="1" min="1" class="w-full border rounded-lg p-2.5">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Unit</label>
+                        <input type="text" id="item-unit" placeholder="kg, pcs..." class="w-full border rounded-lg p-2.5">
+                    </div>
+                </div>
+                <div id="expiry-section" class="hidden pt-4 border-t">
+                    <label class="block text-sm font-bold text-emerald-700 mb-1">Freshness Logic (Script 6.3)</label>
+                    <input type="number" id="shelf-life" placeholder="Days of freshness left" class="w-full border rounded-lg p-2.5 bg-emerald-50">
+                    <p class="text-[10px] text-slate-500 mt-1 italic">The system calculates expiry dates using JS Date objects.</p>
+                </div>
+                <div class="flex gap-3 pt-6">
+                    <button type="button" onclick="closeModal()" class="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-lg font-semibold">Cancel</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-emerald-500 text-white rounded-lg font-semibold">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script Section 6: JavaScript & Web Service Integration -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Script Section 3.2: RESTful Web Service Configuration
+        const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
+        const apiKey = ""; 
+
+        // Script Section 6.2: JSON State Management
+        let db, auth, userId = null;
+        let inventory = [], shoppingList = [], historicalWaste = 0;
+        let currentTab = 'inventory';
+
+        // Script Section 3.3: Authentication Concept
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        if (Object.keys(firebaseConfig).length > 0) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            onAuthStateChanged(auth, async (user) => {
+                if (user) { userId = user.uid; initSync(); } 
+                else { await signInAnonymously(auth); }
+            });
+        }
+
+        // Script Section 3.1: Server-Client Communication
+        function initSync() {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'food-app';
+            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'food_data', 'main');
+            onSnapshot(docRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    inventory = data.inventory || [];
+                    shoppingList = data.shoppingList || [];
+                    historicalWaste = data.historicalWaste || 0;
+                    autoClean();
+                    render();
+                } else { commit(); }
+            }, (err) => console.error("Firebase Sync Error:", err));
+        }
+
+        async function commit() {
+            if (!userId) return;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'food-app';
+            await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'food_data', 'main'), 
+            { inventory, shoppingList, historicalWaste });
+        }
+
+        function autoClean() {
+            const now = new Date();
+            const prev = inventory.length;
+            inventory = inventory.filter(i => {
+                if (i.expiry && new Date(i.expiry) < now) { historicalWaste++; return false; }
+                return true;
+            });
+            if (inventory.length !== prev) commit();
+        }
+
+        // Script Section 6.1: DOM Manipulation
+        window.switchTab = (t) => { currentTab = t; render(); };
+        window.openModal = (id = null) => {
+            document.getElementById('item-form').reset();
+            document.getElementById('item-id').value = id || '';
+            document.getElementById('expiry-section').classList.toggle('hidden', currentTab !== 'inventory');
+            document.getElementById('modal').classList.remove('hidden');
+        };
+        window.closeModal = () => document.getElementById('modal').classList.add('hidden');
+
+        document.getElementById('item-form').onsubmit = (e) => {
+            e.preventDefault();
+            const id = document.getElementById('item-id').value || crypto.randomUUID();
+            const name = document.getElementById('item-name').value;
+            const qty = document.getElementById('item-qty').value;
+            const unit = document.getElementById('item-unit').value;
+            let expiry = "";
+
+            if (currentTab === 'inventory') {
+                const days = parseInt(document.getElementById('shelf-life').value);
+                if (days) {
+                    const d = new Date(); d.setDate(d.getDate() + days);
+                    expiry = d.toISOString().split('T')[0];
+                }
+                const idx = inventory.findIndex(i => i.id === id);
+                if (idx > -1) inventory[idx] = { id, name, quantity: qty, unit, expiry };
+                else inventory.push({ id, name, quantity: qty, unit, expiry });
+            } else {
+                const idx = shoppingList.findIndex(i => i.id === id);
+                if (idx > -1) shoppingList[idx] = { id, name, quantity: qty, unit };
+                else shoppingList.push({ id, name, quantity: qty, unit });
+            }
+            commit(); closeModal();
+        };
+
+        window.moveItem = (id) => {
+            if (currentTab === 'shopping') {
+                const i = shoppingList.find(x => x.id === id);
+                shoppingList = shoppingList.filter(x => x.id !== id);
+                inventory.push({ ...i, expiry: "PENDING" });
+                currentTab = 'inventory';
+            } else {
+                const i = inventory.find(x => x.id === id);
+                inventory = inventory.filter(x => x.id !== id);
+                shoppingList.push({ ...i, expiry: null });
+            }
+            commit();
+        };
+
+        window.deleteItem = (id) => {
+            if (currentTab === 'inventory') inventory = inventory.filter(i => i.id !== id);
+            else shoppingList = shoppingList.filter(i => i.id !== id);
+            commit();
+        };
+
+        // Script Section 3.2: Web Service Micro-interaction
+        async function aiRequest(prompt, role) {
+            try {
+                const res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                    method: 'POST', body: JSON.stringify({ 
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: { parts: [{ text: role }] }
+                    })
+                });
+                const j = await res.json();
+                return j.candidates[0].content.parts[0].text;
+            } catch (e) { return "AI Microservice offline."; }
+        }
+
+        window.getAISuggest = async () => {
+            const out = document.getElementById('ai-box');
+            out.innerText = "Analyzing staples...";
+            out.innerText = await aiRequest(`Shopping list: ${shoppingList.map(i => i.name).join(', ')}. Suggest 3 cheap additions.`, "Budget Analyst.");
+        };
+
+            window.getAIRecipe = async () => {
+            const out = document.getElementById('recipe-box');
+            out.innerText = "Crafting zero-waste meal...";
+            out.innerText = await aiRequest(`Ingredients: ${inventory.map(i => i.name).join(', ')}. Create 1 quick recipe.`, "Chef.");
+        };
+
+        function render() {
+            const root = document.getElementById('main-content');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active-tab', b.id === `tab-${currentTab}`));
+            
+            if (currentTab === 'inventory') {
+                root.innerHTML = `
+                    <div class="card p-6">
+                        <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-700">In Stock</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm">Add Item</button></div>
+                        <div class="space-y-3">
+                            ${inventory.map(i => `
+                                <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all">
+                                    <div><p class="font-bold text-slate-800">${i.name}</p><p class="text-xs text-slate-400">${i.quantity} ${i.unit} • ${i.expiry || 'No date'}</p></div>
+                                    <div class="flex gap-2">
+                                        <button onclick="moveItem('${i.id}')" class="text-xs font-bold text-amber-600 hover:text-amber-700">Buy Again</button>
+                                        <button onclick="deleteItem('${i.id}')" class="text-xs text-red-400 hover:text-red-600">Del</button>
+                                    </div>
+                                </div>`).join('') || '<p class="text-center text-slate-300 italic py-10">No food in stock.</p>'}
+                        </div>
+                    </div>`;
+            } else if (currentTab === 'shopping') {
+                root.innerHTML = `
+                    <div class="card p-6">
+                        <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-700">To Buy</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm">Add Item</button></div>
+                        <div class="space-y-3 mb-6">${shoppingList.map(i => `
+                            <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center">
+                                <p class="font-bold text-slate-800">${i.name} (${i.quantity})</p>
+                                <button onclick="moveItem('${i.id}')" class="bg-emerald-500 text-white px-3 py-1 rounded-md text-xs font-bold shadow-sm">Mark Bought</button>
+                            </div>`).join('') || '<p class="text-center text-slate-300 italic py-10">List clear.</p>'}</div>
+                        <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                            <button onclick="getAISuggest()" class="text-xs bg-indigo-600 text-white px-3 py-2 rounded font-bold hover:bg-indigo-700 transition-colors">Smart Staples AI Suggestion</button>
+                            <div id="ai-box" class="text-xs italic text-indigo-700 mt-2 leading-relaxed"></div>
+                        </div>
+                    </div>`;
+            } else if (currentTab === 'planner') {
+                root.innerHTML = `
+                    <div class="card p-6 text-center">
+                        <h2 class="text-xl font-bold mb-4 text-slate-700">Zero-Waste Meal Generator</h2>
+                        <p class="text-slate-500 text-sm mb-6">AI will create a recipe based only on your current kitchen stock.</p>
+                        <button onclick="getAIRecipe()" class="bg-purple-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-purple-200 hover:bg-purple-700 transition-all">Generate Recipe</button>
+                        <div id="recipe-box" class="mt-6 p-4 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-xl border leading-relaxed"></div>
+                    </div>`;
+            } else {
+                root.innerHTML = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="card p-8 text-center bg-rose-50 border border-rose-100">
+                            <p class="text-xs font-bold text-rose-600 uppercase tracking-wider mb-2">Expired Items</p>
+                            <h3 class="text-4xl font-black text-rose-900">${historicalWaste}</h3>
+                        </div>
+                        <div class="card p-8 text-center bg-emerald-50 border border-emerald-100">
+                            <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">Kitchen Size</p>
+                            <h3 class="text-4xl font-black text-emerald-900">${inventory.length}</h3>
+                        </div>
+                    </div>`;
+            }
+            // Re-initialize icons after DOM update
+            if (typeof lucide !== 'undefined') { lucide.createIcons(); }
+        }
+    </script>
+</body>
+</html>
