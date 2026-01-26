@@ -3,256 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Budget Bites | Intelligent Food Management</title>
-    <!-- Script Section 5.2: CSS & Framework Integration -->
+    <title>Budget Bites: Monthly Food Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
-        .active-tab { background-color: #10b981 !important; color: white !important; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); }
-        .card { background: white; border-radius: 1.25rem; box-shadow: 0 4px 25px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; }
-        .expiry-warning { animation: flash-red 1.5s infinite; border: 2px solid #ef4444; }
-        @keyframes flash-red { 0%, 100% { background-color: #fee2e2; } 50% { background-color: #fca5a5; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
+        .tab-button.active { background-color: #10b981; color: white; box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.4); transform: translateY(-2px); }
+        .tab-button { transition: all 0.2s; border-bottom: 3px solid transparent; }
+        .card { background-color: white; border-radius: 16px; box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
+        .expiry-warning { animation: flash-red 1.5s infinite; background-color: #fee2e2; color: #b91c1c; font-weight: 700; }
+        @keyframes flash-red { 0%, 100% { background-color: #fca5a5; } 50% { background-color: #fee2e2; } }
     </style>
 </head>
-<body class="min-h-screen pb-20">
+<body class="min-h-screen p-4 md:p-8">
 
-    <!-- Section 4: Mediengestaltung Header -->
-    <header class="bg-white border-b py-6 mb-8 sticky top-0 z-40 backdrop-blur-md bg-white/80">
-        <div class="max-w-5xl mx-auto px-4 flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-black text-slate-800">Budget Bites 🍽️</h1>
-                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Smart Inventory System</p>
+    <div class="max-w-6xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-gray-800 flex items-center justify-center">Budget Bites 🍽️</h1>
+            <p class="text-gray-500 mt-1">Gestione Alimentare Mensile & Zero Sprechi</p>
+            <p id="user-info" class="text-[10px] mt-2 text-gray-400 uppercase tracking-widest font-bold">Connessione al Cloud...</p>
+        </header>
+
+        <nav class="flex justify-center mb-10 bg-white p-2 rounded-full shadow-lg max-w-fit mx-auto">
+            <button class="tab-button active px-6 py-2 mx-1 text-sm font-bold rounded-full" data-tab="inventory">Dispensa</button>
+            <button class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full" data-tab="shopping">Lista Spesa</button>
+            <button class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full" data-tab="planner">AI Planner</button>
+            <button class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full" data-tab="reports">Dashboard</button>
+        </nav>
+
+        <main id="content-area">
+            <div class="flex justify-center items-center h-48 card">
+                <p id="loading-message" class="text-lg text-gray-500 italic">In attesa di autenticazione Cloud...</p>
             </div>
-            <div id="sync-indicator" class="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-bold uppercase transition-colors">Connecting...</div>
-        </div>
-    </header>
+        </main>
+    </div>
 
-    <main class="max-w-5xl mx-auto px-4">
-        <!-- Navigation - Section 4.2: Interaction -->
-        <div class="flex flex-wrap justify-center gap-2 mb-8 bg-slate-200/50 p-1.5 rounded-2xl w-fit mx-auto">
-            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-6 py-2.5 rounded-xl font-bold text-slate-600 transition-all text-sm">Inventory</button>
-            <button onclick="switchTab('shopping')" id="tab-shopping" class="tab-btn px-6 py-2.5 rounded-xl font-bold text-slate-600 transition-all text-sm">Shopping</button>
-            <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn px-6 py-2.5 rounded-xl font-bold text-slate-600 transition-all text-sm">AI Recipes</button>
-            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-6 py-2.5 rounded-xl font-bold text-slate-600 transition-all text-sm">Stats</button>
-        </div>
-
-        <!-- Section 6.1: Dynamic Content -->
-        <div id="main-content" class="space-y-6">
-            <div class="text-center py-20 text-slate-400 italic">Synchronizing with Cloud Database...</div>
-        </div>
-    </main>
-
-    <!-- Modal Form -->
-    <div id="modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="card w-full max-w-md p-8">
-            <h3 id="modal-title" class="text-xl font-bold mb-6 text-slate-800">Add Item</h3>
+    <!-- Modal Container -->
+    <div id="modal-container" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800">Aggiungi Elemento</h3>
             <form id="item-form" class="space-y-4">
                 <input type="hidden" id="item-id">
-                <input type="text" id="item-name" placeholder="Item Name (e.g. Avocado)" required class="w-full border-2 border-slate-100 rounded-xl p-3 outline-none focus:border-emerald-500">
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="number" id="item-qty" value="1" min="1" class="w-full border-2 border-slate-100 rounded-xl p-3">
-                    <input type="text" id="item-unit" placeholder="Unit (kg, pcs)" class="w-full border-2 border-slate-100 rounded-xl p-3">
+                <input type="hidden" id="list-type">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Nome</label>
+                    <input type="text" id="item-name" required class="w-full rounded-xl border-gray-200 p-3 border focus:ring-2 focus:ring-emerald-500 outline-none">
                 </div>
-                <div id="expiry-section" class="hidden pt-4 border-t">
-                    <label class="block text-xs font-bold text-emerald-600 mb-2 uppercase">Freshness Estimation (Section 6.3)</label>
-                    <input type="number" id="shelf-life" placeholder="Days until expired" class="w-full border-2 border-emerald-50 rounded-xl p-3 bg-emerald-50/30">
+                <div class="flex space-x-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Quantità</label>
+                        <input type="number" id="item-quantity" required min="1" value="1" class="w-full rounded-xl border-gray-200 p-3 border">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Unità</label>
+                        <input type="text" id="item-unit" placeholder="kg, pezzi" class="w-full rounded-xl border-gray-200 p-3 border">
+                    </div>
                 </div>
-                <div class="flex gap-3 pt-4">
-                    <button type="button" onclick="closeModal()" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-500">Cancel</button>
-                    <button type="submit" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg">Save</button>
+                <div id="expiry-field" class="hidden pt-4 border-t border-dashed">
+                    <label class="block text-xs font-black text-emerald-600 uppercase mb-2">Scadenza (Giorni)</label>
+                    <input type="number" id="item-shelf-life" placeholder="Tra quanti giorni scade?" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border">
+                </div>
+                <div class="flex justify-end space-x-3 pt-6">
+                    <button type="button" onclick="closeModal()" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl">Annulla</button>
+                    <button type="submit" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl shadow-lg shadow-emerald-100">Salva</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Section 6: JavaScript Application Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- FIREBASE CONFIGURATION ---
-        // REPLACE THE STRINGS BELOW WITH YOUR ACTUAL KEYS FROM FIREBASE CONSOLE
+        // Configurazione basata sui tuoi screenshot (image_d669bb.png)
         const firebaseConfig = {
-            apiKey: "PASTE_HERE",
-            authDomain: "PASTE_HERE",
-            projectId: "PASTE_HERE",
-            storageBucket: "PASTE_HERE",
-            messagingSenderId: "PASTE_HERE",
-            appId: "PASTE_HERE"
+            apiKey: "AIzaSyDJCyBXzmRIyYPFJ9jGzWzW4oGsfy0mKao",
+            authDomain: "budget-bites-cf50b.firebaseapp.com",
+            projectId: "budget-bites-cf50b",
+            storageBucket: "budget-bites-cf50b.firebasestorage.app",
+            messagingSenderId: "803742307254",
+            appId: "1:803742307254:web:8e16c5473048d91311e7177"
         };
 
+        const geminiKey = "INSERISCI_TUA_CHIAVE_GEMINI";
         const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
-        const aiKey = ""; // OPTIONAL: Add Gemini Key here
 
-        let db, auth, userId = null, inventory = [], shoppingList = [], waste = 0, activeTab = 'inventory';
+        let db, auth, userId = null, inventory = [], shoppingList = [], historicalWaste = 0, activeTab = 'inventory';
 
-        // Section 3.3: Authentication Concept
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            onAuthStateChanged(auth, async (u) => {
-                if (u) { 
-                    userId = u.uid; 
-                    document.getElementById('sync-indicator').innerText = "Cloud Active";
-                    document.getElementById('sync-indicator').className = "text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md font-bold uppercase";
-                    startSync(); 
-                } else { 
-                    await signInAnonymously(auth); 
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                document.getElementById('user-info').textContent = `Cloud Attivo (ID: ${userId})`;
+                startSync();
+            } else {
+                try {
+                    await signInAnonymously(auth);
+                } catch (e) {
+                    document.getElementById('loading-message').innerHTML = '<span class="text-red-500 font-bold underline">ERRORE AUTH:</span> Per favore attiva l\'accesso "Anonimo" su Firebase.';
                 }
-            });
-        } catch(e) { 
-            console.error("Connection failed. Did you paste your Firebase keys?"); 
-            document.getElementById('sync-indicator').innerText = "Offline Mode";
-            document.getElementById('sync-indicator').className = "text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded-md font-bold uppercase";
-            render();
-        }
+            }
+        });
 
-        // Section 3.1: Server-Client Communication (Persistence)
         function startSync() {
-            const docRef = doc(db, 'artifacts', 'food-app-prod', 'users', userId, 'data', 'primary');
+            const appId = 'budget-bites-final';
+            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'data', 'primary');
             onSnapshot(docRef, (snap) => {
                 if (snap.exists()) {
                     const d = snap.data();
                     inventory = d.inventory || [];
                     shoppingList = d.shoppingList || [];
-                    waste = d.waste || 0;
+                    historicalWaste = d.historicalWaste || 0;
                 }
                 processWaste();
-                render();
+                renderUI();
+            }, (error) => {
+                console.error("Errore Firestore:", error);
+                document.getElementById('loading-message').innerHTML = '<span class="text-red-500 font-bold underline">ERRORE FIRESTORE:</span> Crea il database Firestore in "Modalità Test".';
             });
         }
 
-        async function push() {
+        async function save() {
             if (!userId) return;
-            const docRef = doc(db, 'artifacts', 'food-app-prod', 'users', userId, 'data', 'primary');
-            await setDoc(docRef, { inventory, shoppingList, waste, lastUpdate: new Date() });
+            const appId = 'budget-bites-final';
+            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'data', 'primary');
+            await setDoc(docRef, { inventory, shoppingList, historicalWaste, updated: new Date().toISOString() });
         }
 
         function processWaste() {
             const now = new Date();
-            const prevCount = inventory.length;
+            const initial = inventory.length;
             inventory = inventory.filter(i => {
-                if (i.expiry && new Date(i.expiry) < now) { waste++; return false; }
+                if (i.expiry && i.expiry !== 'PENDING' && new Date(i.expiry) < now) {
+                    historicalWaste++; return false;
+                }
                 return true;
             });
-            if (inventory.length !== prevCount) push();
+            if (inventory.length !== initial) save();
         }
 
-        // Section 6.1: DOM Manipulation Handlers
-        window.switchTab = (t) => { activeTab = t; render(); };
-        window.openModal = (id = null) => {
-            const form = document.getElementById('item-form');
-            form.reset();
-            document.getElementById('item-id').value = id || '';
-            document.getElementById('expiry-section').classList.toggle('hidden', activeTab !== 'inventory');
-            document.getElementById('modal').classList.remove('hidden');
+        window.switchTab = (t) => { activeTab = t; renderUI(); };
+        window.openModal = (type, item = null) => {
+            document.getElementById('item-form').reset();
+            document.getElementById('list-type').value = type;
+            document.getElementById('item-id').value = item ? item.id : '';
+            document.getElementById('modal-title').innerText = item ? 'Modifica' : 'Aggiungi';
+            document.getElementById('expiry-field').classList.toggle('hidden', type !== 'inventory');
+            document.getElementById('modal-container').classList.replace('hidden', 'flex');
         };
-        window.closeModal = () => document.getElementById('modal').classList.add('hidden');
+        window.closeModal = () => document.getElementById('modal-container').classList.replace('flex', 'hidden');
 
-        document.getElementById('item-form').onsubmit = async (e) => {
+        document.getElementById('item-form').onsubmit = (e) => {
             e.preventDefault();
+            const type = document.getElementById('list-type').value;
             const id = document.getElementById('item-id').value || crypto.randomUUID();
             const name = document.getElementById('item-name').value;
-            const qty = document.getElementById('item-qty').value;
+            const quantity = parseInt(document.getElementById('item-quantity').value);
             const unit = document.getElementById('item-unit').value;
             let expiry = "";
 
-            if (activeTab === 'inventory') {
-                const days = parseInt(document.getElementById('shelf-life').value);
+            if (type === 'inventory') {
+                const days = parseInt(document.getElementById('item-shelf-life').value);
                 if (days) {
                     const d = new Date(); d.setDate(d.getDate() + days);
                     expiry = d.toISOString().split('T')[0];
                 }
                 const idx = inventory.findIndex(i => i.id === id);
-                if (idx > -1) inventory[idx] = { id, name, quantity: qty, unit, expiry };
-                else inventory.push({ id, name, quantity: qty, unit, expiry });
+                if (idx > -1) inventory[idx] = { id, name, quantity, unit, expiry };
+                else inventory.push({ id, name, quantity, unit, expiry });
             } else {
                 const idx = shoppingList.findIndex(i => i.id === id);
-                if (idx > -1) shoppingList[idx] = { id, name, quantity: qty, unit };
-                else shoppingList.push({ id, name, quantity: qty, unit });
+                if (idx > -1) shoppingList[idx] = { id, name, quantity, unit };
+                else shoppingList.push({ id, name, quantity, unit });
             }
-            
-            await push(); 
-            closeModal();
-            render(); // Force immediate update
+            save(); closeModal();
         };
 
-        window.moveItem = async (id) => {
-            if (activeTab === 'shopping') {
+        window.moveItem = (id, from) => {
+            if (from === 'shopping') {
                 const i = shoppingList.find(x => x.id === id);
                 shoppingList = shoppingList.filter(x => x.id !== id);
-                inventory.push({ ...i, expiry: "PENDING" });
-                activeTab = 'inventory';
+                inventory.push({ ...i, expiry: 'PENDING' });
+                openModal('inventory', inventory[inventory.length-1]);
             } else {
                 const i = inventory.find(x => x.id === id);
                 inventory = inventory.filter(x => x.id !== id);
-                shoppingList.push({ ...i, expiry: null });
+                shoppingList.push({ ...i, expiry: "" });
             }
-            await push();
-            render();
+            save();
         };
 
-        window.deleteItem = async (id) => {
-            if (activeTab === 'inventory') inventory = inventory.filter(i => i.id !== id);
-            else shoppingList = shoppingList.filter(i => i.id !== id);
-            await push();
-            render();
+        window.deleteItem = (type, id) => {
+            if (confirm('Eliminare questo elemento?')) {
+                if (type === 'inventory') inventory = inventory.filter(i => i.id !== id);
+                else shoppingList = shoppingList.filter(i => i.id !== id);
+                save();
+            }
         };
 
-        // Section 3.2: Web Service AI interaction
-        async function callAI(prompt, system) {
-            if (!aiKey) return "AI Key missing. Add a Google Gemini API key to enable this feature.";
+        window.getAISuggest = async () => {
+            const out = document.getElementById('ai-out');
+            out.innerText = "Consulto l'AI...";
             try {
-                const r = await fetch(`${GEMINI_URL}?key=${aiKey}`, {
-                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: system }] } })
+                const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
+                    method: 'POST', body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Lista: ${shoppingList.map(i => i.name).join(', ')}. Suggerisci 3 ingredienti base economici.` }] }]
+                    })
                 });
-                const j = await r.json();
-                return j.candidates[0].content.parts[0].text;
-            } catch (e) { return "AI Service error. Check connection."; }
-        }
-
-        window.getShopAI = async () => {
-            const b = document.getElementById('ai-shop-out');
-            b.innerText = "Analyzing staples...";
-            b.innerText = await callAI(`List: ${shoppingList.map(i => i.name).join(', ')}. Suggest 3 budget staples.`, "Expert.");
+                const j = await res.json();
+                out.innerText = j.candidates[0].content.parts[0].text;
+            } catch(e) { out.innerText = "Controlla la chiave API."; }
         };
 
-        window.getMealAI = async () => {
-            const b = document.getElementById('ai-meal-out');
-            b.innerText = "Consulting Chef...";
-            b.innerText = await callAI(`Inventory: ${inventory.map(i => i.name).join(', ')}. Create 1 recipe.`, "Chef.");
-        };
-
-        // UI RENDER ENGINE
-        function render() {
-            const root = document.getElementById('main-content');
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active-tab', btn.id === `tab-${activeTab}`));
+        function renderUI() {
+            const root = document.getElementById('content-area');
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === activeTab));
             
             if (activeTab === 'inventory') {
-                root.innerHTML = `<div class="card p-6"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-700">Pantry Stock</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Add Item</button></div><div class="space-y-3">${inventory.map(i => `
-                    <div class="flex justify-between p-4 border rounded-2xl items-center bg-white shadow-sm">
-                        <div><p class="font-bold text-slate-800">${i.name}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${i.quantity} ${i.unit} • Exp: ${i.expiry || 'PENDING'}</p></div>
-                        <div class="flex gap-3"><button onclick="moveItem('${i.id}')" class="text-[10px] font-black text-amber-600 uppercase">Need Again</button><button onclick="deleteItem('${i.id}')" class="text-[10px] font-black text-rose-400 uppercase">Del</button></div>
-                    </div>`).join('') || '<div class="py-10 text-center text-slate-300 italic font-medium">Your kitchen is currently empty.</div>'}</div></div>`;
+                root.innerHTML = `
+                <div class="card">
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold">Dispensa</h2><button onclick="openModal('inventory')" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold">+ Aggiungi</button></div>
+                    <div class="space-y-3">
+                        ${inventory.map(i => `
+                            <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm">
+                                <div><p class="font-bold">${i.name}</p><p class="text-xs text-gray-400 font-semibold">${i.quantity} ${i.unit} • Scad: ${i.expiry || 'In sospeso'}</p></div>
+                                <div class="flex gap-3"><button onclick="moveItem('${i.id}', 'inventory')" class="text-xs font-bold text-amber-600">Ricarica</button><button onclick="deleteItem('inventory', '${i.id}')" class="text-xs text-red-400">Elimina</button></div>
+                            </div>
+                        `).join('') || '<p class="text-center italic text-gray-400 py-10">La dispensa è vuota.</p>'}
+                    </div>
+                </div>`;
             } else if (activeTab === 'shopping') {
-                root.innerHTML = `<div class="card p-6"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-700">Grocery List</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Add Item</button></div><div class="space-y-3 mb-6">${shoppingList.map(i => `
-                    <div class="flex justify-between p-4 border rounded-2xl bg-emerald-50/20 items-center border-emerald-100 shadow-sm">
-                        <p class="font-bold text-slate-700">${i.name} <span class="text-xs font-normal">(${i.quantity})</span></p>
-                        <button onclick="moveItem('${i.id}')" class="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">Bought</button>
-                    </div>`).join('') || '<div class="py-10 text-center text-slate-300 italic font-medium">No items on your list.</div>'}</div>
-                    <div class="bg-indigo-50 p-5 rounded-2xl border border-indigo-100"><button onclick="getShopAI()" class="text-[10px] bg-indigo-600 text-white px-3 py-2 rounded-lg font-black uppercase shadow-md mb-2">Smart AI Suggestion</button><div id="ai-shop-out" class="text-xs italic text-indigo-700 leading-relaxed">Click to get AI budget advice.</div></div></div>`;
+                root.innerHTML = `
+                <div class="card">
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold">Lista Spesa</h2><button onclick="openModal('shopping')" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold">+ Aggiungi</button></div>
+                    <div class="space-y-3 mb-6">
+                        ${shoppingList.map(i => `
+                            <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center border-emerald-100">
+                                <p class="font-bold">${i.name} (${i.quantity})</p>
+                                <button onclick="moveItem('${i.id}', 'shopping')" class="bg-emerald-500 text-white px-4 py-1 rounded-lg text-xs font-bold shadow-sm">Comprato</button>
+                            </div>
+                        `).join('') || '<p class="text-center italic text-gray-400 py-10">Nulla da comprare.</p>'}
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 shadow-inner">
+                        <button onclick="getAISuggest()" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-bold mb-2 uppercase tracking-wider">Suggerimenti AI</button>
+                        <div id="ai-out" class="text-xs italic text-indigo-700 leading-relaxed"></div>
+                    </div>
+                </div>`;
             } else if (activeTab === 'planner') {
-                root.innerHTML = `<div class="card p-8 text-center"><h2 class="text-xl font-bold mb-4 text-slate-700 text-left">Zero-Waste AI Recipe</h2><p class="text-slate-400 text-xs mb-8 text-left leading-relaxed">Based on your ${inventory.length} ingredients, we create a recipe that uses items closest to expiration.</p><button onclick="getMealAI()" class="bg-purple-600 text-white px-8 py-4 rounded-full font-black shadow-xl shadow-purple-200 uppercase tracking-widest text-xs hover:scale-105 transition-transform">Generate Recipe</button><div id="ai-meal-out" class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-600 min-h-[100px]">Recipes appear here...</div></div>`;
+                root.innerHTML = `<div class="card text-center py-20"><h2 class="text-2xl font-bold mb-4 text-gray-800 text-center">AI Meal Planner</h2><button class="bg-purple-600 text-white px-10 py-3 rounded-full font-bold shadow-lg shadow-purple-200">Genera Ricetta</button></div>`;
             } else {
-                root.innerHTML = `<div class="grid grid-cols-2 gap-4"><div class="card p-8 text-center bg-rose-50 border-rose-100"><p class="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-3">Items Expired</p><h3 class="text-5xl font-black text-rose-900">${waste}</h3></div><div class="card p-8 text-center bg-emerald-50 border-emerald-100"><p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3">Active Stock</p><h3 class="text-5xl font-black text-emerald-900">${inventory.length}</h3></div></div>`;
+                root.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div class="card text-center bg-rose-50 border-2 border-rose-100 shadow-none"><p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-2">Sprechi Totali</p><h3 class="text-6xl font-black text-rose-900">${historicalWaste}</h3></div>
+                    <div class="card text-center bg-emerald-50 border-2 border-emerald-100 shadow-none"><p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Scorte Attive</p><h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3></div>
+                </div>`;
             }
-            if (window.lucide) lucide.createIcons();
         }
-        render();
+
+        document.querySelectorAll('.tab-button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
     </script>
 </body>
 </html>
