@@ -14,6 +14,20 @@
         .card { background-color: white; border-radius: 16px; box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
         .expiry-warning { animation: flash-red 1.5s infinite; background-color: #fee2e2; color: #b91c1c; font-weight: 700; }
         @keyframes flash-red { 0%, 100% { background-color: #fca5a5; } 50% { background-color: #fee2e2; } }
+        
+        /* Animazione per il caricamento */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #10b981;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
@@ -23,7 +37,10 @@
         <header class="text-center mb-10">
             <h1 class="text-4xl font-extrabold text-gray-800 flex items-center justify-center">Budget Bites 🍽️</h1>
             <p id="app-subtitle" class="text-gray-500 mt-1"></p>
-            <p id="user-info" class="text-[10px] mt-2 text-gray-400 uppercase tracking-widest font-bold"></p>
+            <div class="flex items-center justify-center mt-2">
+                <div id="sync-spinner" class="loader"></div>
+                <p id="user-info" class="text-[10px] text-gray-400 uppercase tracking-widest font-bold"></p>
+            </div>
         </header>
 
         <!-- Sezione 4.2: Navigazione Multilingua -->
@@ -35,8 +52,9 @@
         </nav>
 
         <main id="content-area">
-            <div class="flex justify-center items-center h-48 card">
-                <p id="loading-message" class="text-lg text-gray-500 italic"></p>
+            <div class="flex flex-col justify-center items-center h-48 card">
+                <div class="loader mb-4" style="width: 40px; height: 40px;"></div>
+                <p id="loading-message" class="text-lg text-gray-400 italic font-medium"></p>
             </div>
         </main>
     </div>
@@ -83,9 +101,9 @@
         const translations = {
             it: {
                 subtitle: "Gestione Alimentare Mensile & Zero Sprechi",
-                connecting: "Connessione al Cloud...",
-                active: "Cloud Attivo",
-                loading: "In attesa di autenticazione...",
+                connecting: "Sincronizzazione Cloud...",
+                active: "Sistema Online",
+                loading: "Caricamento dati protetti...",
                 nav_inv: "Dispensa",
                 nav_shop: "Lista Spesa",
                 nav_plan: "AI Planner",
@@ -95,15 +113,15 @@
                 name: "Nome Prodotto",
                 qty: "Quantità",
                 unit: "Unità",
-                expiry_logic: "Logica Scadenza (Giorni)",
-                expiry_placeholder: "Tra quanti giorni scadrà?",
+                expiry_logic: "Scadenza Stimata (Giorni)",
+                expiry_placeholder: "Giorni di freschezza",
                 save: "Salva",
                 cancel: "Annulla",
                 empty_inv: "La tua dispensa è vuota.",
                 empty_shop: "Nulla da comprare.",
                 ai_btn: "Suggerimenti AI",
                 ai_wait: "Consulto l'IA...",
-                ai_info: "Fai clic per analizzare la spesa.",
+                ai_info: "Analisi intelligente della spesa.",
                 planner_title: "AI Meal Planner",
                 planner_desc: "Ricette basate sui tuoi ingredienti reali.",
                 planner_btn: "Genera Ricetta",
@@ -115,9 +133,9 @@
             },
             de: {
                 subtitle: "Monatliche Lebensmittelverwaltung & Zero Waste",
-                connecting: "Cloud-Verbindung...",
-                active: "Cloud Aktiv",
-                loading: "Warten auf Authentifizierung...",
+                connecting: "Cloud-Synchronizzazione...",
+                active: "System Online",
+                loading: "Geschützte Daten werden geladen...",
                 nav_inv: "Vorrat",
                 nav_shop: "Einkaufsliste",
                 nav_plan: "KI Planner",
@@ -128,14 +146,14 @@
                 qty: "Menge",
                 unit: "Einheit",
                 expiry_logic: "Haltbarkeit (Tage)",
-                expiry_placeholder: "Wie lange haltbar?",
+                expiry_placeholder: "Haltbarkeit in Tagen",
                 save: "Speichern",
                 cancel: "Abbrechen",
                 empty_inv: "Dein Vorrat ist leer.",
                 empty_shop: "Nichts zu kaufen.",
                 ai_btn: "KI Vorschläge",
                 ai_wait: "KI wird befragt...",
-                ai_info: "Klicken für KI-Analyse.",
+                ai_info: "Intelligente Einkaufsanalyse.",
                 planner_title: "KI Meal Planner",
                 planner_desc: "Rezepte basierend auf deinen Vorräten.",
                 planner_btn: "Rezept generieren",
@@ -147,9 +165,9 @@
             },
             en: {
                 subtitle: "Monthly Food Management & Zero Waste",
-                connecting: "Connecting to Cloud...",
-                active: "Cloud Active",
-                loading: "Waiting for authentication...",
+                connecting: "Cloud Syncing...",
+                active: "System Online",
+                loading: "Loading secure data...",
                 nav_inv: "Inventory",
                 nav_shop: "Shopping List",
                 nav_plan: "AI Planner",
@@ -160,14 +178,14 @@
                 qty: "Quantity",
                 unit: "Unit",
                 expiry_logic: "Shelf Life (Days)",
-                expiry_placeholder: "Days until expired?",
+                expiry_placeholder: "Freshness days",
                 save: "Save",
                 cancel: "Cancel",
                 empty_inv: "Your inventory is empty.",
                 empty_shop: "Nothing to buy.",
                 ai_btn: "AI Suggestions",
                 ai_wait: "Consulting AI...",
-                ai_info: "Click for AI analysis.",
+                ai_info: "Smart shopping analysis.",
                 planner_title: "AI Meal Planner",
                 planner_desc: "Recipes based on what you have.",
                 planner_btn: "Generate Recipe",
@@ -183,7 +201,7 @@
         const currentLang = (browserLang in translations) ? browserLang : 'en';
         const t = translations[currentLang];
 
-        // --- CONFIGURAZIONE CHIAVI (AGGIORNATE DAI TUOI SCREENSHOT) ---
+        // --- CONFIGURAZIONE CHIAVI (BBOM PROJECT) ---
         const firebaseConfig = {
             apiKey: "AIzaSyDJCyBXzmRIyYPFJ9jGzWzW4oGsfy0mKao",
             authDomain: "budget-bites-cf50b.firebaseapp.com",
@@ -194,13 +212,12 @@
             measurementId: "G-44HB61QCS5"
         };
 
-        // CHIAVE GEMINI DALLO SCREENSHOT image_d5da7e.png
         const geminiKey = "AIzaSyD4GuMCUS352hE86d9_7dzaZ8PHkJ4Ckss"; 
         const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
 
         let db, auth, userId = null, inventory = [], shoppingList = [], historicalWaste = 0, activeTab = 'inventory';
 
-        // Setup UI
+        // Inizializzazione testi UI
         document.getElementById('app-subtitle').innerText = t.subtitle;
         document.getElementById('user-info').innerText = t.connecting;
         document.getElementById('loading-message').innerText = t.loading;
@@ -216,7 +233,8 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 userId = user.uid;
-                document.getElementById('user-info').textContent = `${t.active} (ID: ${userId})`;
+                document.getElementById('user-info').textContent = `${t.active}`;
+                document.getElementById('sync-spinner').style.display = 'none';
                 startSync();
             } else {
                 await signInAnonymously(auth);
@@ -332,12 +350,12 @@
             try {
                 const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
                     method: 'POST', body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Language: ${currentLang}. Items: ${shoppingList.map(i => i.name).join(', ')}. Suggest 3 versatile staples.` }] }]
+                        contents: [{ parts: [{ text: `Lang: ${currentLang}. Shopping list: ${shoppingList.map(i => i.name).join(', ')}. Suggest 3 cheap staples.` }] }]
                     })
                 });
                 const j = await res.json();
                 out.innerText = j.candidates[0].content.parts[0].text;
-            } catch(e) { out.innerText = "Error. Check AI Studio connection."; }
+            } catch(e) { out.innerText = "Check API Connection."; }
         };
 
         window.getAIRecipe = async () => {
@@ -346,12 +364,12 @@
             try {
                 const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
                     method: 'POST', body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Language: ${currentLang}. I have: ${inventory.map(i => i.name).join(', ')}. Create 1 easy zero-waste recipe.` }] }]
+                        contents: [{ parts: [{ text: `Lang: ${currentLang}. Inventory: ${inventory.map(i => i.name).join(', ')}. One zero-waste recipe.` }] }]
                     })
                 });
                 const j = await res.json();
                 out.innerText = j.candidates[0].content.parts[0].text;
-            } catch(e) { out.innerText = "Error. Check AI Studio connection."; }
+            } catch(e) { out.innerText = "Check API Connection."; }
         };
 
         function renderUI() {
@@ -382,7 +400,7 @@
                     <div class="space-y-3 mb-6">
                         ${shoppingList.map(i => `
                             <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center border-emerald-100">
-                                <p class="font-bold text-gray-800">${i.name} (${i.quantity})</p>
+                                <p class="font-bold text-gray-800">${i.name} (${i.quantity} ${i.unit || ''})</p>
                                 <button onclick="moveItem('${i.id}', 'shopping')" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">${t.move_bought}</button>
                             </div>
                         `).join('') || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`}
