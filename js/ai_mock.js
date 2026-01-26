@@ -1,3 +1,33 @@
+export function getSmartSuggestions(lang, shoppingNames = []) {
+  const T = (en, de, it) => (lang === "de" ? de : lang === "it" ? it : en);
+
+  const items = (shoppingNames || []).map(x => (x || "").toLowerCase()).join(" ");
+
+  // very simple “AI-like” suggestions (does NOT repeat the list)
+  const suggestions = [];
+
+  // If user is buying pasta/rice, suggest staples
+  if (items.includes("pasta") || items.includes("rice") || items.includes("reis")) {
+    suggestions.push(
+      T("Add: eggs, frozen veggies, and canned tomatoes for quick meals.",
+        "Tipp: Eier, TK-Gemüse und Dosentomaten dazu — super für schnelle Gerichte.",
+        "Aggiungi: uova, verdure surgelate e pomodori in scatola per pasti veloci.")
+    );
+  }
+
+  // Default fallback
+  if (suggestions.length === 0) {
+    suggestions.push(
+      T("Budget staples: eggs, rice, pasta, canned tomatoes, onions, frozen vegetables.",
+        "Budget-Basics: Eier, Reis, Pasta, Dosentomaten, Zwiebeln, TK-Gemüse.",
+        "Basi economiche: uova, riso, pasta, pomodori in scatola, cipolle, verdure surgelate.")
+    );
+  }
+
+  return suggestions.slice(0, 3).map((s, i) => `${i + 1}) ${s}`).join("\n");
+}
+
+
 const STAPLES = ["eggs", "rice", "pasta", "tomato", "onion", "garlic", "frozen vegetables", "tuna", "beans"];
 
 export function getSmartRecipe(lang, inventoryNames = []) {
