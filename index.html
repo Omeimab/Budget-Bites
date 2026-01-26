@@ -3,139 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Budget Bites | Intelligent Food Management</title>
-    <!-- Script Section 5.2: CSS & Framework Integration -->
+    <title>Budget Bites | Food Management System</title>
+    <!-- Section 5.2: CSS Integration via Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .active-tab { background-color: #10b981 !important; color: white !important; }
-        .card { background: white; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        .expiry-warning { animation: flash-red 1.5s infinite; }
+        .active-tab { background-color: #10b981 !important; color: white !important; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+        .card { background: white; border-radius: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; }
+        .expiry-warning { animation: flash-red 1.5s infinite; background-color: #fee2e2; color: #b91c1c; }
         @keyframes flash-red { 0%, 100% { background-color: #fca5a5; } 50% { background-color: #fee2e2; } }
     </style>
 </head>
-<body class="min-h-screen pb-12">
+<body class="min-h-screen pb-20">
 
-    <!-- Script Section 4: Mediengestaltung (UI/UX Layout) -->
-    <header class="bg-white border-b py-6 mb-8">
+    <!-- Section 4: Mediengestaltung - UI/UX -->
+    <header class="bg-white border-b py-8 mb-10">
         <div class="max-w-5xl mx-auto px-4 text-center">
-            <h1 class="text-3xl font-extrabold text-slate-800">Budget Bites 🍽️</h1>
-            <p class="text-slate-500">Intelligent Monthly Food Planning & Waste Reduction</p>
+            <h1 class="text-4xl font-black text-slate-800 tracking-tight">Budget Bites 🍽️</h1>
+            <p class="text-slate-500 mt-2 font-medium">Intelligent Food Planning & Waste Reduction</p>
         </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-4">
-        <!-- Navigation - Script Section 4.2: Interaction Concept -->
-        <div class="flex flex-wrap justify-center gap-2 mb-8 bg-slate-200/50 p-2 rounded-2xl w-fit mx-auto">
-            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-6 py-2 rounded-xl font-semibold text-slate-600 transition-all">Inventory</button>
-            <button onclick="switchTab('shopping')" id="tab-shopping" class="tab-btn px-6 py-2 rounded-xl font-semibold text-slate-600 transition-all">Shopping List</button>
-            <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn px-6 py-2 rounded-xl font-semibold text-slate-600 transition-all text-sm">AI Meal Planner</button>
-            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-6 py-2 rounded-xl font-semibold text-slate-600 transition-all">Dashboard</button>
+        <!-- Navigation - Section 4.2: Interaction -->
+        <div class="flex flex-wrap justify-center gap-2 mb-10 bg-slate-200/50 p-2 rounded-3xl w-fit mx-auto backdrop-blur-md">
+            <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-8 py-3 rounded-2xl font-bold text-slate-600 transition-all">Inventory</button>
+            <button onclick="switchTab('shopping')" id="tab-shopping" class="tab-btn px-8 py-3 rounded-2xl font-bold text-slate-600 transition-all">Shopping List</button>
+            <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn px-8 py-3 rounded-2xl font-bold text-slate-600 transition-all">AI Planner</button>
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-8 py-3 rounded-2xl font-bold text-slate-600 transition-all">Dashboard</button>
         </div>
 
-        <!-- Script Section 6.1: Dynamic DOM Content Area -->
-        <div id="main-content" class="min-h-[400px]">
-            <div class="text-center py-20 text-slate-400 italic">Initializing modules...</div>
-        </div>
+        <!-- Section 6.1: Dynamic Content Area -->
+        <div id="main-content" class="transition-all duration-300"></div>
     </main>
 
-    <!-- Modal for User Input (HTML5 Dialog Concept) -->
+    <!-- Modal for Inputs -->
     <div id="modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="card w-full max-w-md p-8">
-            <h3 id="modal-title" class="text-xl font-bold mb-6 text-slate-800">Add Item</h3>
-            <form id="item-form" class="space-y-4">
+        <div class="card w-full max-w-md p-10">
+            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-slate-800">Add New Item</h3>
+            <form id="item-form" class="space-y-5">
                 <input type="hidden" id="item-id">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
-                    <input type="text" id="item-name" required class="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-emerald-500">
+                    <label class="block text-sm font-bold text-slate-700 mb-1 ml-1">Name</label>
+                    <input type="text" id="item-name" placeholder="e.g. Avocados" required class="w-full border-2 border-slate-100 rounded-xl p-3 outline-none focus:border-emerald-500 bg-slate-50">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
-                        <input type="number" id="item-qty" value="1" min="1" class="w-full border rounded-lg p-2.5">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Unit</label>
-                        <input type="text" id="item-unit" placeholder="kg, pcs..." class="w-full border rounded-lg p-2.5">
-                    </div>
+                    <input type="number" id="item-qty" value="1" min="1" class="w-full border-2 border-slate-100 rounded-xl p-3 bg-slate-50">
+                    <input type="text" id="item-unit" placeholder="Unit (kg, pcs)" class="w-full border-2 border-slate-100 rounded-xl p-3 bg-slate-50">
                 </div>
-                <div id="expiry-section" class="hidden pt-4 border-t">
-                    <label class="block text-sm font-bold text-emerald-700 mb-1">Freshness Logic (Script 6.3)</label>
-                    <input type="number" id="shelf-life" placeholder="Days of freshness left" class="w-full border rounded-lg p-2.5 bg-emerald-50">
-                    <p class="text-[10px] text-slate-500 mt-1 italic">The system calculates expiry dates using JS Date objects.</p>
+                <div id="expiry-section" class="hidden pt-6 border-t mt-4">
+                    <label class="block text-sm font-bold text-emerald-700 mb-2">Shelf Life Algorithm (Section 6.3)</label>
+                    <input type="number" id="shelf-life" placeholder="Days of freshness left" class="w-full border-2 border-emerald-100 rounded-xl p-3 bg-emerald-50/50">
+                    <p class="text-[11px] text-slate-400 mt-2 italic">The system uses the Date API to predict expiration.</p>
                 </div>
-                <div class="flex gap-3 pt-6">
-                    <button type="button" onclick="closeModal()" class="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-lg font-semibold">Cancel</button>
-                    <button type="submit" class="flex-1 py-2.5 bg-emerald-500 text-white rounded-lg font-semibold">Save</button>
+                <div class="flex gap-4 pt-6">
+                    <button type="button" onclick="closeModal()" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all">Save Item</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Script Section 6: JavaScript & Web Service Integration -->
+    <!-- Section 6: JS & Web Services -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Script Section 3.2: RESTful Web Service Configuration
+        // IMPORTANT: REPLACE THESE EMPTY STRINGS WITH YOUR FIREBASE CONFIG KEYS
+        const firebaseConfig = {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+
         const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
-        const apiKey = ""; 
+        const geminiKey = ""; 
 
-        // Script Section 6.2: JSON State Management
-        let db, auth, userId = null;
-        let inventory = [], shoppingList = [], historicalWaste = 0;
-        let currentTab = 'inventory';
+        let db, auth, userId = null, inventory = [], shoppingList = [], historicalWaste = 0, currentTab = 'inventory';
 
-        // Script Section 3.3: Authentication Concept
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        if (Object.keys(firebaseConfig).length > 0) {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            onAuthStateChanged(auth, async (user) => {
-                if (user) { userId = user.uid; initSync(); } 
-                else { await signInAnonymously(auth); }
-            });
-        }
+        // Section 3.3: Authentication
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
 
-        // Script Section 3.1: Server-Client Communication
-        function initSync() {
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'food-app';
-            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'food_data', 'main');
-            onSnapshot(docRef, (snap) => {
+        onAuthStateChanged(auth, async (user) => {
+            if (user) { userId = user.uid; startDataSync(); } 
+            else { await signInAnonymously(auth); }
+        });
+
+        // Section 3.1: Client-Server Communication
+        function startDataSync() {
+            onSnapshot(doc(db, 'food_manager_pro', userId), (snap) => {
                 if (snap.exists()) {
                     const data = snap.data();
                     inventory = data.inventory || [];
                     shoppingList = data.shoppingList || [];
                     historicalWaste = data.historicalWaste || 0;
-                    autoClean();
+                    logicCheck();
                     render();
-                } else { commit(); }
-            }, (err) => console.error("Firebase Sync Error:", err));
+                } else { pushUpdate(); }
+            });
         }
 
-        async function commit() {
-            if (!userId) return;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'food-app';
-            await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'food_data', 'main'), 
-            { inventory, shoppingList, historicalWaste });
+        async function pushUpdate() {
+            if (userId) await setDoc(doc(db, 'food_manager_pro', userId), { inventory, shoppingList, historicalWaste });
         }
 
-        function autoClean() {
-            const now = new Date();
-            const prev = inventory.length;
+        function logicCheck() {
+            const today = new Date();
+            const startLen = inventory.length;
             inventory = inventory.filter(i => {
-                if (i.expiry && new Date(i.expiry) < now) { historicalWaste++; return false; }
+                if (i.expiry && new Date(i.expiry) < today) { historicalWaste++; return false; }
                 return true;
             });
-            if (inventory.length !== prev) commit();
+            if (inventory.length !== startLen) pushUpdate();
         }
 
-        // Script Section 6.1: DOM Manipulation
         window.switchTab = (t) => { currentTab = t; render(); };
         window.openModal = (id = null) => {
             document.getElementById('item-form').reset();
@@ -167,7 +156,7 @@
                 if (idx > -1) shoppingList[idx] = { id, name, quantity: qty, unit };
                 else shoppingList.push({ id, name, quantity: qty, unit });
             }
-            commit(); closeModal();
+            pushUpdate(); closeModal();
         };
 
         window.moveItem = (id) => {
@@ -181,98 +170,55 @@
                 inventory = inventory.filter(x => x.id !== id);
                 shoppingList.push({ ...i, expiry: null });
             }
-            commit();
+            pushUpdate();
         };
 
         window.deleteItem = (id) => {
             if (currentTab === 'inventory') inventory = inventory.filter(i => i.id !== id);
             else shoppingList = shoppingList.filter(i => i.id !== id);
-            commit();
+            pushUpdate();
         };
 
-        // Script Section 3.2: Web Service Micro-interaction
-        async function aiRequest(prompt, role) {
+        // Section 3.2: AI Web Service (Microservice)
+        async function askAI(prompt, system) {
             try {
-                const res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-                    method: 'POST', body: JSON.stringify({ 
-                        contents: [{ parts: [{ text: prompt }] }],
-                        systemInstruction: { parts: [{ text: role }] }
-                    })
+                const res = await fetch(`${GEMINI_API_URL}?key=${geminiKey}`, {
+                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: system }] } })
                 });
                 const j = await res.json();
                 return j.candidates[0].content.parts[0].text;
-            } catch (e) { return "AI Microservice offline."; }
+            } catch (e) { return "AI Service offline."; }
         }
 
         window.getAISuggest = async () => {
-            const out = document.getElementById('ai-box');
-            out.innerText = "Analyzing staples...";
-            out.innerText = await aiRequest(`Shopping list: ${shoppingList.map(i => i.name).join(', ')}. Suggest 3 cheap additions.`, "Budget Analyst.");
+            const el = document.getElementById('ai-box');
+            el.innerHTML = "<div class='animate-pulse'>Analyzing food patterns...</div>";
+            el.innerText = await askAI(`Shopping: ${shoppingList.map(i => i.name).join(', ')}. Recommend 3 staples.`, "Budget Specialist.");
         };
 
-            window.getAIRecipe = async () => {
-            const out = document.getElementById('recipe-box');
-            out.innerText = "Crafting zero-waste meal...";
-            out.innerText = await aiRequest(`Ingredients: ${inventory.map(i => i.name).join(', ')}. Create 1 quick recipe.`, "Chef.");
+        window.getAIRecipe = async () => {
+            const el = document.getElementById('recipe-box');
+            el.innerHTML = "<div class='animate-pulse text-center'>Generating chef-curated recipe...</div>";
+            el.innerText = await askAI(`Kitchen: ${inventory.map(i => i.name).join(', ')}. Give 1 simple zero-waste recipe.`, "Chef.");
         };
 
+        // Section 6.1: UI Rendering
         function render() {
             const root = document.getElementById('main-content');
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active-tab', b.id === `tab-${currentTab}`));
             
             if (currentTab === 'inventory') {
-                root.innerHTML = `
-                    <div class="card p-6">
-                        <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-700">In Stock</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm">Add Item</button></div>
-                        <div class="space-y-3">
-                            ${inventory.map(i => `
-                                <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all">
-                                    <div><p class="font-bold text-slate-800">${i.name}</p><p class="text-xs text-slate-400">${i.quantity} ${i.unit} • ${i.expiry || 'No date'}</p></div>
-                                    <div class="flex gap-2">
-                                        <button onclick="moveItem('${i.id}')" class="text-xs font-bold text-amber-600 hover:text-amber-700">Buy Again</button>
-                                        <button onclick="deleteItem('${i.id}')" class="text-xs text-red-400 hover:text-red-600">Del</button>
-                                    </div>
-                                </div>`).join('') || '<p class="text-center text-slate-300 italic py-10">No food in stock.</p>'}
-                        </div>
-                    </div>`;
+                root.innerHTML = `<div class="card p-8"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-bold text-slate-800">In My Kitchen</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-emerald-600 transition-all">Add Item</button></div><div class="space-y-4">${inventory.map(i => `<div class="flex justify-between p-5 border-2 border-slate-50 rounded-2xl items-center hover:border-emerald-100 transition-all"><div><p class="font-bold text-slate-800">${i.name}</p><p class="text-xs text-slate-400 font-medium">${i.quantity} ${i.unit} • Expires: ${i.expiry || 'Not set'}</p></div><div class="flex gap-3"><button onclick="moveItem('${i.id}')" class="text-xs font-black text-amber-600 uppercase tracking-tighter">Use / Refill</button><button onclick="deleteItem('${i.id}')" class="text-xs font-black text-red-400 uppercase tracking-tighter">Del</button></div></div>`).join('') || '<p class="text-center text-slate-300 py-12 italic">Kitchen is empty.</p>'}</div></div>`;
             } else if (currentTab === 'shopping') {
-                root.innerHTML = `
-                    <div class="card p-6">
-                        <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-700">To Buy</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm">Add Item</button></div>
-                        <div class="space-y-3 mb-6">${shoppingList.map(i => `
-                            <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center">
-                                <p class="font-bold text-slate-800">${i.name} (${i.quantity})</p>
-                                <button onclick="moveItem('${i.id}')" class="bg-emerald-500 text-white px-3 py-1 rounded-md text-xs font-bold shadow-sm">Mark Bought</button>
-                            </div>`).join('') || '<p class="text-center text-slate-300 italic py-10">List clear.</p>'}</div>
-                        <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                            <button onclick="getAISuggest()" class="text-xs bg-indigo-600 text-white px-3 py-2 rounded font-bold hover:bg-indigo-700 transition-colors">Smart Staples AI Suggestion</button>
-                            <div id="ai-box" class="text-xs italic text-indigo-700 mt-2 leading-relaxed"></div>
-                        </div>
-                    </div>`;
+                root.innerHTML = `<div class="card p-8"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-bold text-slate-800">Shopping List</h2><button onclick="openModal()" class="bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md">Add Item</button></div><div class="space-y-4 mb-8">${shoppingList.map(i => `<div class="flex justify-between p-5 border-2 border-slate-50 rounded-2xl bg-slate-50/50 items-center"><p class="font-bold text-slate-700">${i.name} (${i.quantity})</p><button onclick="moveItem('${i.id}')" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase">Mark Bought</button></div>`).join('') || '<p class="text-center text-slate-300 py-12 italic">No shopping needed.</p>'}</div><div class="bg-indigo-50 p-6 rounded-2xl border-2 border-indigo-100"><button onclick="getAISuggest()" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded-lg font-black uppercase shadow-md shadow-indigo-100 mb-3">AI Shopping Insight</button><div id="ai-box" class="text-xs italic text-indigo-700 leading-relaxed font-medium"></div></div></div>`;
             } else if (currentTab === 'planner') {
-                root.innerHTML = `
-                    <div class="card p-6 text-center">
-                        <h2 class="text-xl font-bold mb-4 text-slate-700">Zero-Waste Meal Generator</h2>
-                        <p class="text-slate-500 text-sm mb-6">AI will create a recipe based only on your current kitchen stock.</p>
-                        <button onclick="getAIRecipe()" class="bg-purple-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-purple-200 hover:bg-purple-700 transition-all">Generate Recipe</button>
-                        <div id="recipe-box" class="mt-6 p-4 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-xl border leading-relaxed"></div>
-                    </div>`;
+                root.innerHTML = `<div class="card p-10 text-center"><h2 class="text-2xl font-bold mb-6 text-slate-800">AI Meal Planner</h2><p class="text-slate-500 mb-8 text-sm">We find recipes based only on your ${inventory.length} kitchen items.</p><button onclick="getAIRecipe()" class="bg-purple-600 text-white px-10 py-4 rounded-full font-black shadow-xl shadow-purple-200 uppercase tracking-wide hover:bg-purple-700 transition-all">Generate Zero-Waste Recipe</button><div id="recipe-box" class="mt-10 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div></div>`;
             } else {
-                root.innerHTML = `
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="card p-8 text-center bg-rose-50 border border-rose-100">
-                            <p class="text-xs font-bold text-rose-600 uppercase tracking-wider mb-2">Expired Items</p>
-                            <h3 class="text-4xl font-black text-rose-900">${historicalWaste}</h3>
-                        </div>
-                        <div class="card p-8 text-center bg-emerald-50 border border-emerald-100">
-                            <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">Kitchen Size</p>
-                            <h3 class="text-4xl font-black text-emerald-900">${inventory.length}</h3>
-                        </div>
-                    </div>`;
+                root.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="card p-10 text-center bg-rose-50 border-2 border-rose-100"><p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-3">Total Waste Count</p><h3 class="text-6xl font-black text-rose-900">${historicalWaste}</h3></div><div class="card p-10 text-center bg-emerald-50 border-2 border-emerald-100"><p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3">Current Pantry</p><h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3></div></div>`;
             }
-            // Re-initialize icons after DOM update
-            if (typeof lucide !== 'undefined') { lucide.createIcons(); }
+            if (window.lucide) lucide.createIcons();
         }
+        render();
     </script>
 </body>
 </html>
