@@ -35,13 +35,26 @@ export function signInAndSync({ db, auth, onReady, onData }) {
   });
 }
 
-export async function saveData({ db, userId, inventory, shoppingList, historicalWaste }) {
+// ✅ UPDATED: now also stores budget + spent
+export async function saveData({
+  db,
+  userId,
+  inventory,
+  shoppingList,
+  historicalWaste,
+  monthlyBudget = 0,
+  monthSpent = 0
+}) {
   if (!userId) return;
+
   const docRef = doc(db, "artifacts", "BBOM-v1", "users", userId, "data", "primary");
+
   await setDoc(docRef, {
     inventory,
     shoppingList,
     historicalWaste,
+    monthlyBudget,
+    monthSpent,
     updated: new Date().toISOString()
   });
 }
