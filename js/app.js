@@ -10,7 +10,7 @@ let inventory = [];
 let shoppingList = [];
 let historicalWaste = 0;
 
-// NEW: budget tracking
+//  NEW: budget state
 let monthlyBudget = 0;
 let monthSpent = 0;
 
@@ -42,10 +42,9 @@ document.getElementById("item-form").onsubmit = async (e) => {
   const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
   const unit = document.getElementById("item-unit").value.trim();
 
-  //  NEW: price (for BOTH lists)
-  const priceRaw = document.getElementById("inp-price")?.value ?? "";
-  const priceNum = priceRaw === "" ? null : Number(priceRaw);
-  const price = Number.isFinite(priceNum) ? priceNum : null;
+  //  NEW: price
+  const rawPrice = (document.getElementById("inp-price")?.value || "").trim();
+  const price = rawPrice === "" ? null : Number(rawPrice);
 
   if (!name) return;
 
@@ -66,11 +65,12 @@ document.getElementById("item-form").onsubmit = async (e) => {
 
   await persist();
   closeModal();
+  draw();
 };
 
 function upsert(arr, item) {
   const idx = arr.findIndex(x => x.id === item.id);
-  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
+  if (idx >= 0) arr[idx] = item;
   else arr.push(item);
 }
 
@@ -89,20 +89,12 @@ function draw() {
     historicalWaste,
     monthlyBudget,
     monthSpent,
-
     onAdd: (type) => openModal(t, type, null),
     onMove: moveItem,
     onDelete: deleteItem,
     onSuggest: showSuggestions,
     onRecipe: showRecipe,
-
-    // NEW: save budget from UI
-    onSetBudget: async (value) => {
-      const v = Number(value);
-      monthlyBudget = Number.isFinite(v) && v >= 0 ? v : 0;
-      await persist();
-      draw();
-    }
+    onSaveBudget: saveBudget
   });
 }
 
@@ -128,41 +120,39 @@ async function persist() {
     inventory,
     shoppingList,
     historicalWaste,
-    //  MUST SEND THESE
     monthlyBudget,
     monthSpent
   });
 }
 
+//  NEW: budget save
+async function saveBudget(newBudget) {
+  monthlyBudget = Math.max(0, Number(newBudget || 0));
+  await persist();
+  draw();
+}
+
+//  UPDATED: no more second modal after BOUGHT
 async function moveItem(id, from) {
   if (from === "shopping") {
     const i = shoppingList.find(x => x.id === id);
     if (!i) return;
 
-    // remove from shopping
     shoppingList = shoppingList.filter(x => x.id !== id);
 
-    //  add to spent ONLY if price exists
-    if (i.price != null && Number.isFinite(Number(i.price))) {
-      monthSpent = Number(monthSpent || 0) + Number(i.price);
-    }
+    // add to spent (price * qty)
+    const line = (Number(i.price || 0) * Number(i.quantity || 1));
+    if (Number.isFinite(line) && line > 0) monthSpent = Number(monthSpent || 0) + line;
 
-    // move to inventory WITHOUT opening modal again ✅ (no double work)
-    inventory.push({
-      id: i.id,
-      name: i.name,
-      quantity: i.quantity,
-      unit: i.unit,
-      price: i.price,
-      expiry: "PENDING"
-    });
+    const moved = { ...i, expiry: "PENDING" };
+    inventory.push(moved);
 
     await persist();
     draw();
     return;
   }
 
-  // inventory -> shopping (mark as need)
+  // inventory -> shopping (need)
   const i = inventory.find(x => x.id === id);
   if (!i) return;
 
@@ -174,7 +164,7 @@ async function moveItem(id, from) {
 }
 
 async function deleteItem(type, id) {
-  if (!confirm(t.delete_confirm)) return;
+  if (!confirm(t.delete_confirm || "Delete this item?")) return;
 
   if (type === "inventory") inventory = inventory.filter(i => i.id !== id);
   else shoppingList = shoppingList.filter(i => i.id !== id);
@@ -208,7 +198,7 @@ signInAndSync({
     shoppingList = d.shoppingList || [];
     historicalWaste = d.historicalWaste || 0;
 
-    //  READ FROM FIRESTORE
+    //  IMPORTANT: read budget values from firebase
     monthlyBudget = Number(d.monthlyBudget || 0);
     monthSpent = Number(d.monthSpent || 0);
 
