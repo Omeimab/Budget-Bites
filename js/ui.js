@@ -34,7 +34,7 @@ export function openModal(t, type, item) {
   document.getElementById("lbl-unit").innerText = t.unit;
   document.getElementById("lbl-expiry").innerText = t.expiry_logic;
 
-  // ✅ price label (safe if exists)
+  //  price label (safe if exists)
   const lblPrice = document.getElementById("lbl-price");
   if (lblPrice) lblPrice.innerText = t.price || "Price (€)";
 
@@ -113,6 +113,13 @@ export function renderUI({
           Save
         </button>
       </div>
+      <button
+  id="btn-reset-month"
+  class="mt-3 text-xs text-red-500 font-bold hover:underline"
+>
+  Reset monthly spending
+</button>
+
 
       <p class="mt-2 text-xs text-slate-500">
         Tip: Add prices to Shopping List items and click BOUGHT to track spending automatically.
