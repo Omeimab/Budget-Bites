@@ -35,7 +35,6 @@ export function signInAndSync({ db, auth, onReady, onData }) {
   });
 }
 
-// UPDATED: now also stores budget + spent
 export async function saveData({
   db,
   userId,
