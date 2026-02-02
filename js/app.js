@@ -96,6 +96,16 @@ function draw() {
     onRecipe: showRecipe,
     onSaveBudget: saveBudget
   });
+  const resetBtn = document.getElementById("btn-reset-month");
+if (resetBtn) {
+  resetBtn.onclick = async () => {
+    if (!confirm("Reset monthly spending to 0€?")) return;
+    monthSpent = 0;
+    await persist();
+    draw();
+  };
+}
+
 }
 
 function processWaste() {
