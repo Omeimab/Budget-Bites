@@ -34,16 +34,19 @@ export function openModal(t, type, item) {
   document.getElementById("lbl-unit").innerText = t.unit;
   document.getElementById("lbl-expiry").innerText = t.expiry_logic;
 
-  // OPTIONAL: if you added price label ids in HTML, you can enable this later:
-  // const lblPrice = document.getElementById("lbl-price");
-  // const inpPrice = document.getElementById("inp-price");
-  // if (lblPrice) lblPrice.innerText = t.price;
-  // if (inpPrice) inpPrice.placeholder = t.price_placeholder;
-  // if (inpPrice) inpPrice.value = item?.price ?? "";
-
   document.getElementById("item-shelf-life").placeholder = t.expiry_placeholder;
   document.getElementById("btn-save").innerText = t.save;
   document.getElementById("btn-cancel").innerText = t.cancel;
+
+  // fill existing values
+  if (item) {
+    document.getElementById("item-name").value = item.name ?? "";
+    document.getElementById("item-quantity").value = item.quantity ?? 1;
+    document.getElementById("item-unit").value = item.unit ?? "";
+    if (document.getElementById("inp-price")) {
+      document.getElementById("inp-price").value = item.price ?? "";
+    }
+  }
 
   document.getElementById("expiry-field").classList.toggle("hidden", type !== "inventory");
   document.getElementById("modal-container").classList.replace("hidden", "flex");
@@ -53,16 +56,6 @@ export function closeModal() {
   document.getElementById("modal-container").classList.replace("flex", "hidden");
 }
 
-/**
- * renderUI receives all data + callbacks from app.js
- * We are adding:
- * - Price display (inventory + shopping)
- * - Monthly budget stats in Reports tab
- *
- * IMPORTANT: For budget stats, app.js must pass:
- *   monthlyBudget (number)
- *   purchases (array of {amount:number, ts:number})
- */
 export function renderUI({
   t,
   lang,
@@ -71,16 +64,42 @@ export function renderUI({
   shoppingList,
   historicalWaste,
   monthlyBudget = 0,
-  purchases = [],
+  monthSpent = 0,
   onAdd,
   onMove,
   onDelete,
   onSuggest,
   onRecipe,
-  onSaveBudget
+  onSetBudget
 }) {
   const root = document.getElementById("content-area");
   setActiveTab(activeTab);
+
+  const spent = Number(monthSpent || 0);
+  const budget = Number(monthlyBudget || 0);
+  const remaining = budget > 0 ? Math.max(0, budget - spent) : 0;
+  const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+
+  const budgetBanner = (() => {
+    if (!budget || budget <= 0) return "";
+    if (spent > budget) {
+      return `
+        <div class="mb-4 p-4 rounded-xl border bg-rose-50 border-rose-200 text-rose-800">
+          <p class="font-black text-xs uppercase tracking-widest mb-1">Budget exceeded</p>
+          <p class="text-sm font-semibold">You are over your monthly budget by <b>${formatMoney(spent - budget)}</b>.</p>
+        </div>
+      `;
+    }
+    if (pct >= 90) {
+      return `
+        <div class="mb-4 p-4 rounded-xl border bg-amber-50 border-amber-200 text-amber-900">
+          <p class="font-black text-xs uppercase tracking-widest mb-1">Watch out</p>
+          <p class="text-sm font-semibold">You already used <b>${pct}%</b> of your budget. Remaining: <b>${formatMoney(remaining)}</b>.</p>
+        </div>
+      `;
+    }
+    return "";
+  })();
 
   if (activeTab === "inventory") {
     root.innerHTML = `
@@ -98,7 +117,7 @@ export function renderUI({
                   <p class="text-xs text-gray-400 font-semibold">
                     ${i.quantity} ${escapeHtml(i.unit || "")}
                     • ${escapeHtml(i.expiry || "PENDING")}
-                    ${i.price != null && i.price !== "" ? ` • ${formatPrice(i.price)}` : ""}
+                    ${i.price != null && i.price !== "" ? ` • ${formatMoney(i.price)}` : ""}
                   </p>
                 </div>
                 <div class="flex gap-3">
@@ -113,14 +132,8 @@ export function renderUI({
     `;
 
     document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
-
-    root.querySelectorAll("[data-move]").forEach(btn => {
-      btn.onclick = () => onMove(btn.dataset.move, "inventory");
-    });
-    root.querySelectorAll("[data-del]").forEach(btn => {
-      btn.onclick = () => onDelete("inventory", btn.dataset.del);
-    });
-
+    root.querySelectorAll("[data-move]").forEach(btn => btn.onclick = () => onMove(btn.dataset.move, "inventory"));
+    root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("inventory", btn.dataset.del));
     return;
   }
 
@@ -132,15 +145,39 @@ export function renderUI({
           <button id="btn-add-shop" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">+ ${t.add}</button>
         </div>
 
+        ${budgetBanner}
+
+        <div class="mb-6 p-5 rounded-2xl border border-slate-100 bg-white">
+          <div class="flex justify-between items-center mb-2">
+            <p class="text-xs font-black tracking-widest uppercase text-slate-500">Monthly budget</p>
+            <p class="text-sm font-black text-slate-800">${formatMoney(spent)} <span class="text-slate-400 font-semibold">spent</span></p>
+          </div>
+
+          <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-2">
+            <div class="h-3 bg-emerald-500" style="width:${pct}%;"></div>
+          </div>
+
+          <div class="flex justify-between text-xs font-semibold text-slate-500">
+            <span>${pct}% used</span>
+            <span>${budget > 0 ? `${formatMoney(remaining)} remaining` : "Set a budget to track remaining"}</span>
+          </div>
+        </div>
+
         <div class="space-y-3 mb-6">
           ${
             shoppingList.map(i => `
               <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center border-emerald-100">
-                <p class="font-bold text-gray-800">
-                  ${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})
-                  ${i.price != null && i.price !== "" ? ` • <span class="text-xs text-gray-400">${formatPrice(i.price)}</span>` : ""}
-                </p>
-                <button data-move="${i.id}" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">${t.move_bought}</button>
+                <div>
+                  <p class="font-bold text-gray-800">
+                    ${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})
+                  </p>
+                  <p class="text-xs text-slate-500 font-semibold">
+                    ${i.price != null && i.price !== "" ? `Price: ${formatMoney(i.price)}` : "No price set yet"}
+                  </p>
+                </div>
+                <button data-move="${i.id}" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">
+                  ${t.move_bought}
+                </button>
               </div>
             `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`
           }
@@ -154,11 +191,8 @@ export function renderUI({
     `;
 
     document.getElementById("btn-add-shop").onclick = () => onAdd("shopping");
-    root.querySelectorAll("[data-move]").forEach(btn => {
-      btn.onclick = () => onMove(btn.dataset.move, "shopping");
-    });
+    root.querySelectorAll("[data-move]").forEach(btn => btn.onclick = () => onMove(btn.dataset.move, "shopping"));
     document.getElementById("btn-suggest").onclick = () => onSuggest();
-
     return;
   }
 
@@ -175,69 +209,59 @@ export function renderUI({
     return;
   }
 
-  // -------- Reports (Dashboard) --------
-  const spent = sumSpentThisMonth(purchases);
-  const budget = Number(monthlyBudget || 0);
-  const remaining = Math.max(0, budget - spent);
-  const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
-
+  // reports
   root.innerHTML = `
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
       <div class="card text-center bg-rose-50 border-2 border-rose-100 shadow-none">
         <p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-2">${t.stat_waste}</p>
         <h3 class="text-6xl font-black text-rose-900">${historicalWaste}</h3>
       </div>
-
       <div class="card text-center bg-emerald-50 border-2 border-emerald-100 shadow-none">
         <p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">${t.stat_stock}</p>
         <h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3>
       </div>
     </div>
 
-    <div class="card border-2 border-slate-100 shadow-none">
-      <div class="flex items-center justify-between mb-2">
-        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.budget_title || "Monthly Budget"}</p>
-        <p class="text-xs font-black text-slate-700">
-          ${budget > 0 ? `${formatPrice(spent)} / ${formatPrice(budget)}` : `${formatPrice(spent)} ${t.budget_spent || "spent"}`}
-        </p>
+    <div class="card">
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-xs font-black tracking-widest uppercase text-slate-500">Monthly budget</p>
+        <p class="text-sm font-black text-slate-800">${formatMoney(spent)} <span class="text-slate-400 font-semibold">spent</span></p>
       </div>
 
-      <div class="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
-        <div class="h-3 bg-emerald-500" style="width:${pct}%"></div>
+      <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-2">
+        <div class="h-3 bg-emerald-500" style="width:${pct}%;"></div>
       </div>
 
-      <div class="flex justify-between mt-2 text-xs font-semibold text-slate-500">
-        <span>${pct}% ${t.budget_used || "used"}</span>
-        <span>${budget > 0 ? `${formatPrice(remaining)} ${t.budget_left || "left"}` : (t.budget_hint || "Set a budget to track remaining")}</span>
+      <div class="flex justify-between text-xs font-semibold text-slate-500 mb-4">
+        <span>${pct}% used</span>
+        <span>${budget > 0 ? `${formatMoney(remaining)} remaining` : "Set a budget to track remaining"}</span>
       </div>
 
-      <div class="mt-4 flex gap-3 items-end">
+      ${budgetBanner}
+
+      <div class="flex gap-3 items-end">
         <div class="flex-1">
-          <label class="text-sm font-semibold block mb-1">${t.budget_set || "Set monthly budget (€)"}</label>
-          <input id="budget-input" type="number" min="0" step="1"
-            class="w-full p-2 border rounded-lg"
-            placeholder="250"
-            value="${budget || ""}"
-          />
+          <label class="block text-sm font-bold text-gray-800 mb-1">Set monthly budget (€)</label>
+          <input id="inp-budget" type="number" min="0" step="1" value="${budget || ""}"
+            class="w-full rounded-xl border border-slate-200 p-3"
+            placeholder="e.g. 300" />
+          <p class="text-xs text-slate-500 mt-2">Tip: Add prices in Shopping List and click BOUGHT to track spending automatically.</p>
         </div>
-        <button id="budget-save" class="px-4 py-2 rounded-lg font-bold bg-emerald-500 text-white">
-          ${t.budget_save || "Save"}
-        </button>
-      </div>
-
-      <div class="mt-3 text-xs text-slate-500">
-        ${t.budget_tip || "Tip: Add prices to Shopping List items and click BOUGHT to track spending automatically."}
+        <button id="btn-save-budget" class="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black shadow-md">Save</button>
       </div>
     </div>
   `;
 
-  const btn = document.getElementById("budget-save");
-  if (btn && typeof onSaveBudget === "function") {
-    btn.onclick = () => {
-      const v = parseFloat(document.getElementById("budget-input")?.value || "0") || 0;
-      onSaveBudget(v);
-    };
-  }
+  document.getElementById("btn-save-budget").onclick = () => {
+    const v = document.getElementById("inp-budget").value;
+    onSetBudget?.(v);
+  };
+}
+
+function formatMoney(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "€0.00";
+  return `€${n.toFixed(2)}`;
 }
 
 function escapeHtml(s) {
@@ -247,24 +271,4 @@ function escapeHtml(s) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function formatPrice(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "€0.00";
-  return `€${n.toFixed(2)}`;
-}
-
-function startOfMonthTs() {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-function sumSpentThisMonth(purchases = []) {
-  const from = startOfMonthTs();
-  return (purchases || [])
-    .filter(p => (p?.ts || 0) >= from)
-    .reduce((acc, p) => acc + (Number(p?.amount) || 0), 0);
 }
