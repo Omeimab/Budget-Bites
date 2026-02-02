@@ -10,7 +10,7 @@ let inventory = [];
 let shoppingList = [];
 let historicalWaste = 0;
 
-// NEW
+// NEW: budget tracking
 let monthlyBudget = 0;
 let monthSpent = 0;
 
@@ -42,9 +42,10 @@ document.getElementById("item-form").onsubmit = async (e) => {
   const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
   const unit = document.getElementById("item-unit").value.trim();
 
-  // NEW: price (works for both inventory + shopping)
-  const priceInp = document.getElementById("inp-price");
-  const price = priceInp ? Number(priceInp.value || "") : null;
+  //  NEW: price (for BOTH lists)
+  const priceRaw = document.getElementById("inp-price")?.value ?? "";
+  const priceNum = priceRaw === "" ? null : Number(priceRaw);
+  const price = Number.isFinite(priceNum) ? priceNum : null;
 
   if (!name) return;
 
@@ -58,19 +59,18 @@ document.getElementById("item-form").onsubmit = async (e) => {
       expiry = d.toISOString().split("T")[0];
     }
 
-    upsert(inventory, { id, name, quantity, unit, expiry, price: Number.isFinite(price) ? price : null });
+    upsert(inventory, { id, name, quantity, unit, expiry, price });
   } else {
-    upsert(shoppingList, { id, name, quantity, unit, price: Number.isFinite(price) ? price : null });
+    upsert(shoppingList, { id, name, quantity, unit, price });
   }
 
   await persist();
   closeModal();
-  draw();
 };
 
 function upsert(arr, item) {
   const idx = arr.findIndex(x => x.id === item.id);
-  if (idx >= 0) arr[idx] = item;
+  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
   else arr.push(item);
 }
 
@@ -87,8 +87,6 @@ function draw() {
     inventory,
     shoppingList,
     historicalWaste,
-
-    // NEW
     monthlyBudget,
     monthSpent,
 
@@ -98,8 +96,13 @@ function draw() {
     onSuggest: showSuggestions,
     onRecipe: showRecipe,
 
-    // NEW
-    onSaveBudget: saveBudget
+    // NEW: save budget from UI
+    onSetBudget: async (value) => {
+      const v = Number(value);
+      monthlyBudget = Number.isFinite(v) && v >= 0 ? v : 0;
+      await persist();
+      draw();
+    }
   });
 }
 
@@ -125,17 +128,10 @@ async function persist() {
     inventory,
     shoppingList,
     historicalWaste,
-
-    // NEW
+    //  MUST SEND THESE
     monthlyBudget,
     monthSpent
   });
-}
-
-async function saveBudget(v) {
-  monthlyBudget = Math.max(0, Number(v || 0));
-  await persist();
-  draw();
 }
 
 async function moveItem(id, from) {
@@ -143,37 +139,38 @@ async function moveItem(id, from) {
     const i = shoppingList.find(x => x.id === id);
     if (!i) return;
 
+    // remove from shopping
     shoppingList = shoppingList.filter(x => x.id !== id);
 
-    // Add spending automatically when BOUGHT is clicked
-    const p = Number(i.price || 0);
-    const q = Number(i.quantity || 1);
-    if (Number.isFinite(p) && p > 0) {
-      monthSpent = Number(monthSpent || 0) + p * q;
+    //  add to spent ONLY if price exists
+    if (i.price != null && Number.isFinite(Number(i.price))) {
+      monthSpent = Number(monthSpent || 0) + Number(i.price);
     }
 
-    // Move to inventory WITHOUT opening modal again
-    const moved = { ...i, expiry: "PENDING" };
-    inventory.push(moved);
-  } else {
-    const i = inventory.find(x => x.id === id);
-    if (!i) return;
-    inventory = inventory.filter(x => x.id !== id);
-    shoppingList.push({ id: i.id, name: i.name, quantity: i.quantity, unit: i.unit, price: i.price ?? null });
+    // move to inventory WITHOUT opening modal again ✅ (no double work)
+    inventory.push({
+      id: i.id,
+      name: i.name,
+      quantity: i.quantity,
+      unit: i.unit,
+      price: i.price,
+      expiry: "PENDING"
+    });
+
+    await persist();
+    draw();
+    return;
   }
+
+  // inventory -> shopping (mark as need)
+  const i = inventory.find(x => x.id === id);
+  if (!i) return;
+
+  inventory = inventory.filter(x => x.id !== id);
+  shoppingList.push({ id: i.id, name: i.name, quantity: i.quantity, unit: i.unit, price: i.price ?? null });
 
   await persist();
   draw();
-
-  // Optional: warning if close/over budget
-  if (monthlyBudget > 0) {
-    const remaining = monthlyBudget - monthSpent;
-    if (remaining <= monthlyBudget * 0.1 && remaining > 0) {
-      alert("⚠ Watch out: you're close to your monthly budget limit.");
-    } else if (remaining <= 0) {
-      alert("⚠ Budget limit reached (or exceeded).");
-    }
-  }
 }
 
 async function deleteItem(type, id) {
@@ -211,9 +208,9 @@ signInAndSync({
     shoppingList = d.shoppingList || [];
     historicalWaste = d.historicalWaste || 0;
 
-    // NEW
-    monthlyBudget = d.monthlyBudget || 0;
-    monthSpent = d.monthSpent || 0;
+    //  READ FROM FIRESTORE
+    monthlyBudget = Number(d.monthlyBudget || 0);
+    monthSpent = Number(d.monthSpent || 0);
 
     processWaste();
     draw();
