@@ -34,7 +34,7 @@ export function openModal(t, type, item) {
   document.getElementById("lbl-unit").innerText = t.unit;
   document.getElementById("lbl-expiry").innerText = t.expiry_logic;
 
-  //  price label (safe if exists)
+  // price label + existing value
   const lblPrice = document.getElementById("lbl-price");
   if (lblPrice) lblPrice.innerText = t.price || "Price (€)";
 
@@ -67,7 +67,8 @@ export function renderUI({
   onDelete,
   onSuggest,
   onRecipe,
-  onSaveBudget
+  onSaveBudget,
+  onResetSpent
 }) {
   const root = document.getElementById("content-area");
   setActiveTab(activeTab);
@@ -113,13 +114,11 @@ export function renderUI({
           Save
         </button>
       </div>
-      <button
-  id="btn-reset-month"
-  class="mt-3 text-xs text-red-500 font-bold hover:underline"
->
-  Reset monthly spending
-</button>
 
+      <button id="btn-reset-month"
+        class="mt-3 text-xs text-red-500 font-bold hover:underline">
+        Reset monthly spending
+      </button>
 
       <p class="mt-2 text-xs text-slate-500">
         Tip: Add prices to Shopping List items and click BOUGHT to track spending automatically.
@@ -208,6 +207,7 @@ export function renderUI({
       onSaveBudget(val);
     };
 
+    document.getElementById("btn-reset-month").onclick = () => onResetSpent();
     return;
   }
 
@@ -247,6 +247,8 @@ export function renderUI({
     const val = document.getElementById("inp-budget").value;
     onSaveBudget(val);
   };
+
+  document.getElementById("btn-reset-month").onclick = () => onResetSpent();
 }
 
 function formatMoney(v) {
