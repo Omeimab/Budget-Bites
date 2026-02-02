@@ -1,8 +1,7 @@
 import { translations, detectDefaultLang, setLang } from "./i18n.js";
 import { initFirebase, signInAndSync, saveData } from "./firebase.js";
 import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
-import { getSmartRecipe } from "./ai_mock.js";
-
+import { getSmartRecipe, getSmartSuggestions } from "./ai_mock.js";
 
 let activeTab = "inventory";
 let userId = null;
@@ -10,6 +9,10 @@ let userId = null;
 let inventory = [];
 let shoppingList = [];
 let historicalWaste = 0;
+
+// NEW: monthly budget + purchases history
+let monthlyBudget = 0;
+let purchases = []; // { amount:number, ts:number }
 
 let lang = detectDefaultLang();
 let t = translations[lang];
@@ -39,6 +42,9 @@ document.getElementById("item-form").onsubmit = async (e) => {
   const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
   const unit = document.getElementById("item-unit").value.trim();
 
+  // NEW: price from modal (optional)
+  const price = parseFloat(document.getElementById("inp-price")?.value || "0") || 0;
+
   if (!name) return;
 
   if (type === "inventory") {
@@ -51,18 +57,19 @@ document.getElementById("item-form").onsubmit = async (e) => {
       expiry = d.toISOString().split("T")[0];
     }
 
-    upsert(inventory, { id, name, quantity, unit, expiry });
+    upsert(inventory, { id, name, quantity, unit, expiry, price });
   } else {
-    upsert(shoppingList, { id, name, quantity, unit });
+    upsert(shoppingList, { id, name, quantity, unit, price });
   }
 
   await persist();
   closeModal();
+  draw();
 };
 
 function upsert(arr, item) {
   const idx = arr.findIndex(x => x.id === item.id);
-  if (idx >= 0) arr[idx] = item;
+  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
   else arr.push(item);
 }
 
@@ -73,12 +80,29 @@ function switchTab(tab) {
 
 function draw() {
   renderUI({
-    t, lang, activeTab, inventory, shoppingList, historicalWaste,
+    t,
+    lang,
+    activeTab,
+    inventory,
+    shoppingList,
+    historicalWaste,
+
+    // NEW: pass budget + purchases to UI
+    monthlyBudget,
+    purchases,
+
     onAdd: (type) => openModal(t, type, null),
     onMove: moveItem,
     onDelete: deleteItem,
     onSuggest: showSuggestions,
-    onRecipe: showRecipe
+    onRecipe: showRecipe,
+
+    // NEW: UI calls this when user saves budget
+    onSaveBudget: async (value) => {
+      monthlyBudget = Number(value || 0);
+      await persist();
+      draw();
+    }
   });
 }
 
@@ -98,13 +122,28 @@ function processWaste() {
 }
 
 async function persist() {
-  await saveData({ db, userId, inventory, shoppingList, historicalWaste });
+  await saveData({
+    db,
+    userId,
+    inventory,
+    shoppingList,
+    historicalWaste,
+
+    // NEW: store these too
+    monthlyBudget,
+    purchases
+  });
 }
 
 async function moveItem(id, from) {
   if (from === "shopping") {
     const i = shoppingList.find(x => x.id === id);
     shoppingList = shoppingList.filter(x => x.id !== id);
+
+    // NEW: track a purchase when item is bought, if price exists
+    if (i?.price && Number(i.price) > 0) {
+      purchases.push({ amount: Number(i.price), ts: Date.now() });
+    }
 
     const moved = { ...i, expiry: "PENDING" };
     inventory.push(moved);
@@ -114,7 +153,13 @@ async function moveItem(id, from) {
   } else {
     const i = inventory.find(x => x.id === id);
     inventory = inventory.filter(x => x.id !== id);
-    shoppingList.push({ id: i.id, name: i.name, quantity: i.quantity, unit: i.unit });
+    shoppingList.push({
+      id: i.id,
+      name: i.name,
+      quantity: i.quantity,
+      unit: i.unit,
+      price: i.price || 0
+    });
   }
 
   await persist();
@@ -154,6 +199,10 @@ signInAndSync({
     inventory = d.inventory || [];
     shoppingList = d.shoppingList || [];
     historicalWaste = d.historicalWaste || 0;
+
+    // NEW: load budget + purchases
+    monthlyBudget = d.monthlyBudget || 0;
+    purchases = d.purchases || [];
 
     processWaste();
     draw();
