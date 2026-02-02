@@ -34,6 +34,13 @@ export function openModal(t, type, item) {
   document.getElementById("lbl-unit").innerText = t.unit;
   document.getElementById("lbl-expiry").innerText = t.expiry_logic;
 
+  // OPTIONAL: if you added price label ids in HTML, you can enable this later:
+  // const lblPrice = document.getElementById("lbl-price");
+  // const inpPrice = document.getElementById("inp-price");
+  // if (lblPrice) lblPrice.innerText = t.price;
+  // if (inpPrice) inpPrice.placeholder = t.price_placeholder;
+  // if (inpPrice) inpPrice.value = item?.price ?? "";
+
   document.getElementById("item-shelf-life").placeholder = t.expiry_placeholder;
   document.getElementById("btn-save").innerText = t.save;
   document.getElementById("btn-cancel").innerText = t.cancel;
@@ -46,7 +53,32 @@ export function closeModal() {
   document.getElementById("modal-container").classList.replace("flex", "hidden");
 }
 
-export function renderUI({ t, lang, activeTab, inventory, shoppingList, historicalWaste, onAdd, onMove, onDelete, onSuggest, onRecipe }) {
+/**
+ * renderUI receives all data + callbacks from app.js
+ * We are adding:
+ * - Price display (inventory + shopping)
+ * - Monthly budget stats in Reports tab
+ *
+ * IMPORTANT: For budget stats, app.js must pass:
+ *   monthlyBudget (number)
+ *   purchases (array of {amount:number, ts:number})
+ */
+export function renderUI({
+  t,
+  lang,
+  activeTab,
+  inventory,
+  shoppingList,
+  historicalWaste,
+  monthlyBudget = 0,
+  purchases = [],
+  onAdd,
+  onMove,
+  onDelete,
+  onSuggest,
+  onRecipe,
+  onSaveBudget
+}) {
   const root = document.getElementById("content-area");
   setActiveTab(activeTab);
 
@@ -63,7 +95,11 @@ export function renderUI({ t, lang, activeTab, inventory, shoppingList, historic
               <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all">
                 <div>
                   <p class="font-bold text-gray-800">${escapeHtml(i.name)}</p>
-                  <p class="text-xs text-gray-400 font-semibold">${i.quantity} ${escapeHtml(i.unit || "")} • ${escapeHtml(i.expiry || "PENDING")}</p>
+                  <p class="text-xs text-gray-400 font-semibold">
+                    ${i.quantity} ${escapeHtml(i.unit || "")}
+                    • ${escapeHtml(i.expiry || "PENDING")}
+                    ${i.price != null && i.price !== "" ? ` • ${formatPrice(i.price)}` : ""}
+                  </p>
                 </div>
                 <div class="flex gap-3">
                   <button data-move="${i.id}" class="text-xs font-bold text-amber-600 uppercase tracking-tighter">${t.move_need}</button>
@@ -100,7 +136,10 @@ export function renderUI({ t, lang, activeTab, inventory, shoppingList, historic
           ${
             shoppingList.map(i => `
               <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center border-emerald-100">
-                <p class="font-bold text-gray-800">${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})</p>
+                <p class="font-bold text-gray-800">
+                  ${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})
+                  ${i.price != null && i.price !== "" ? ` • <span class="text-xs text-gray-400">${formatPrice(i.price)}</span>` : ""}
+                </p>
                 <button data-move="${i.id}" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">${t.move_bought}</button>
               </div>
             `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`
@@ -136,19 +175,69 @@ export function renderUI({ t, lang, activeTab, inventory, shoppingList, historic
     return;
   }
 
-  // reports
+  // -------- Reports (Dashboard) --------
+  const spent = sumSpentThisMonth(purchases);
+  const budget = Number(monthlyBudget || 0);
+  const remaining = Math.max(0, budget - spent);
+  const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+
   root.innerHTML = `
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
       <div class="card text-center bg-rose-50 border-2 border-rose-100 shadow-none">
         <p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-2">${t.stat_waste}</p>
         <h3 class="text-6xl font-black text-rose-900">${historicalWaste}</h3>
       </div>
+
       <div class="card text-center bg-emerald-50 border-2 border-emerald-100 shadow-none">
         <p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">${t.stat_stock}</p>
         <h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3>
       </div>
     </div>
+
+    <div class="card border-2 border-slate-100 shadow-none">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.budget_title || "Monthly Budget"}</p>
+        <p class="text-xs font-black text-slate-700">
+          ${budget > 0 ? `${formatPrice(spent)} / ${formatPrice(budget)}` : `${formatPrice(spent)} ${t.budget_spent || "spent"}`}
+        </p>
+      </div>
+
+      <div class="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
+        <div class="h-3 bg-emerald-500" style="width:${pct}%"></div>
+      </div>
+
+      <div class="flex justify-between mt-2 text-xs font-semibold text-slate-500">
+        <span>${pct}% ${t.budget_used || "used"}</span>
+        <span>${budget > 0 ? `${formatPrice(remaining)} ${t.budget_left || "left"}` : (t.budget_hint || "Set a budget to track remaining")}</span>
+      </div>
+
+      <div class="mt-4 flex gap-3 items-end">
+        <div class="flex-1">
+          <label class="text-sm font-semibold block mb-1">${t.budget_set || "Set monthly budget (€)"}</label>
+          <input id="budget-input" type="number" min="0" step="1"
+            class="w-full p-2 border rounded-lg"
+            placeholder="250"
+            value="${budget || ""}"
+          />
+        </div>
+        <button id="budget-save" class="px-4 py-2 rounded-lg font-bold bg-emerald-500 text-white">
+          ${t.budget_save || "Save"}
+        </button>
+      </div>
+
+      <div class="mt-3 text-xs text-slate-500">
+        ${t.budget_tip || "Tip: Add prices to Shopping List items and click BOUGHT to track spending automatically."}
+      </div>
+    </div>
   `;
+
+  const btn = document.getElementById("budget-save");
+  if (btn && typeof onSaveBudget === "function") {
+    btn.onclick = () => {
+      const v = parseFloat(document.getElementById("budget-input")?.value || "0") || 0;
+      onSaveBudget(v);
+    };
+  }
 }
 
 function escapeHtml(s) {
@@ -158,4 +247,24 @@ function escapeHtml(s) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function formatPrice(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "€0.00";
+  return `€${n.toFixed(2)}`;
+}
+
+function startOfMonthTs() {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function sumSpentThisMonth(purchases = []) {
+  const from = startOfMonthTs();
+  return (purchases || [])
+    .filter(p => (p?.ts || 0) >= from)
+    .reduce((acc, p) => acc + (Number(p?.amount) || 0), 0);
 }
