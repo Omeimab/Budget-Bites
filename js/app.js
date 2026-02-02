@@ -1,7 +1,7 @@
 import { translations, detectDefaultLang, setLang } from "./i18n.js";
 import { initFirebase, signInAndSync, saveData } from "./firebase.js";
 import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
-import { getSmartRecipe, getSmartSuggestions } from "./ai_mock.js";
+import { getSmartSuggestions, getSmartRecipe } from "./ai_mock.js";
 
 let activeTab = "inventory";
 let userId = null;
@@ -10,9 +10,9 @@ let inventory = [];
 let shoppingList = [];
 let historicalWaste = 0;
 
-// NEW: monthly budget + purchases history
+// NEW
 let monthlyBudget = 0;
-let purchases = []; // { amount:number, ts:number }
+let monthSpent = 0;
 
 let lang = detectDefaultLang();
 let t = translations[lang];
@@ -42,8 +42,9 @@ document.getElementById("item-form").onsubmit = async (e) => {
   const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
   const unit = document.getElementById("item-unit").value.trim();
 
-  // NEW: price from modal (optional)
-  const price = parseFloat(document.getElementById("inp-price")?.value || "0") || 0;
+  // NEW: price (works for both inventory + shopping)
+  const priceInp = document.getElementById("inp-price");
+  const price = priceInp ? Number(priceInp.value || "") : null;
 
   if (!name) return;
 
@@ -57,9 +58,9 @@ document.getElementById("item-form").onsubmit = async (e) => {
       expiry = d.toISOString().split("T")[0];
     }
 
-    upsert(inventory, { id, name, quantity, unit, expiry, price });
+    upsert(inventory, { id, name, quantity, unit, expiry, price: Number.isFinite(price) ? price : null });
   } else {
-    upsert(shoppingList, { id, name, quantity, unit, price });
+    upsert(shoppingList, { id, name, quantity, unit, price: Number.isFinite(price) ? price : null });
   }
 
   await persist();
@@ -69,7 +70,7 @@ document.getElementById("item-form").onsubmit = async (e) => {
 
 function upsert(arr, item) {
   const idx = arr.findIndex(x => x.id === item.id);
-  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
+  if (idx >= 0) arr[idx] = item;
   else arr.push(item);
 }
 
@@ -87,9 +88,9 @@ function draw() {
     shoppingList,
     historicalWaste,
 
-    // NEW: pass budget + purchases to UI
+    // NEW
     monthlyBudget,
-    purchases,
+    monthSpent,
 
     onAdd: (type) => openModal(t, type, null),
     onMove: moveItem,
@@ -97,12 +98,8 @@ function draw() {
     onSuggest: showSuggestions,
     onRecipe: showRecipe,
 
-    // NEW: UI calls this when user saves budget
-    onSaveBudget: async (value) => {
-      monthlyBudget = Number(value || 0);
-      await persist();
-      draw();
-    }
+    // NEW
+    onSaveBudget: saveBudget
   });
 }
 
@@ -129,41 +126,54 @@ async function persist() {
     shoppingList,
     historicalWaste,
 
-    // NEW: store these too
+    // NEW
     monthlyBudget,
-    purchases
+    monthSpent
   });
+}
+
+async function saveBudget(v) {
+  monthlyBudget = Math.max(0, Number(v || 0));
+  await persist();
+  draw();
 }
 
 async function moveItem(id, from) {
   if (from === "shopping") {
     const i = shoppingList.find(x => x.id === id);
+    if (!i) return;
+
     shoppingList = shoppingList.filter(x => x.id !== id);
 
-    // NEW: track a purchase when item is bought, if price exists
-    if (i?.price && Number(i.price) > 0) {
-      purchases.push({ amount: Number(i.price), ts: Date.now() });
+    // Add spending automatically when BOUGHT is clicked
+    const p = Number(i.price || 0);
+    const q = Number(i.quantity || 1);
+    if (Number.isFinite(p) && p > 0) {
+      monthSpent = Number(monthSpent || 0) + p * q;
     }
 
+    // Move to inventory WITHOUT opening modal again
     const moved = { ...i, expiry: "PENDING" };
     inventory.push(moved);
-
-    // open modal so user sets shelf life (human flow)
-    openModal(t, "inventory", moved);
   } else {
     const i = inventory.find(x => x.id === id);
+    if (!i) return;
     inventory = inventory.filter(x => x.id !== id);
-    shoppingList.push({
-      id: i.id,
-      name: i.name,
-      quantity: i.quantity,
-      unit: i.unit,
-      price: i.price || 0
-    });
+    shoppingList.push({ id: i.id, name: i.name, quantity: i.quantity, unit: i.unit, price: i.price ?? null });
   }
 
   await persist();
   draw();
+
+  // Optional: warning if close/over budget
+  if (monthlyBudget > 0) {
+    const remaining = monthlyBudget - monthSpent;
+    if (remaining <= monthlyBudget * 0.1 && remaining > 0) {
+      alert("⚠ Watch out: you're close to your monthly budget limit.");
+    } else if (remaining <= 0) {
+      alert("⚠ Budget limit reached (or exceeded).");
+    }
+  }
 }
 
 async function deleteItem(type, id) {
@@ -190,7 +200,8 @@ function showRecipe() {
 
 // Auth + sync
 signInAndSync({
-  db, auth,
+  db,
+  auth,
   onReady: (uid) => {
     userId = uid;
     setOnlineState(t);
@@ -200,9 +211,9 @@ signInAndSync({
     shoppingList = d.shoppingList || [];
     historicalWaste = d.historicalWaste || 0;
 
-    // NEW: load budget + purchases
+    // NEW
     monthlyBudget = d.monthlyBudget || 0;
-    purchases = d.purchases || [];
+    monthSpent = d.monthSpent || 0;
 
     processWaste();
     draw();
@@ -218,7 +229,7 @@ function setupLanguageDropdown() {
     setLang(lang);
     t = translations[lang];
     setHeaderText(t);
-    setOnlineState(t); // keeps header consistent if already online
+    setOnlineState(t);
     draw();
   };
 }
