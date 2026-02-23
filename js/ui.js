@@ -7,7 +7,6 @@ export function renderUI({
   const root = document.getElementById("content-area");
   if (!root) return;
 
-  // 1. Safety Clear: Wipe the area completely before drawing
   root.innerHTML = ""; 
   setActiveTab(activeTab);
 
@@ -17,7 +16,6 @@ export function renderUI({
   const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
   const overBy = budget > 0 ? Math.max(0, spent - budget) : 0;
 
-  // Reusable Budget Widget
   const budgetWidgetHTML = `
     <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
       <div class="flex items-center justify-between">
@@ -32,7 +30,7 @@ export function renderUI({
         <span>${budget > 0 ? (remaining >= 0 ? `${formatMoney(remaining)} remaining` : `${formatMoney(overBy)} over`) : "Set budget"}</span>
       </div>
       <div class="mt-4 flex gap-3 items-center">
-        <input id="inp-budget" type="number" class="flex-1 border rounded-lg p-3 text-sm" placeholder="Budget €" value="${budget > 0 ? budget : ""}" />
+        <input id="inp-budget" type="number" class="flex-1 border rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Budget €" value="${budget > 0 ? budget : ""}" />
         <button id="btn-save-budget" class="bg-emerald-500 text-white px-4 py-3 rounded-xl font-black text-xs uppercase shadow-md hover:bg-emerald-600">Save</button>
       </div>
       <div class="mt-3 flex gap-4">
@@ -49,32 +47,22 @@ export function renderUI({
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-2xl font-bold text-gray-800">${t.nav_inv}</h2>
           <div class="flex gap-2">
-            <button id="btn-clear-inv" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full text-xs font-bold uppercase">
-              ${t.clear_all || "Clear"}
-            </button>
-            <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">
-              + ${t.add}
-            </button>
+            <button id="btn-clear-inv" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full text-xs font-bold uppercase">${t.clear_all || "Clear"}</button>
+            <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">+ ${t.add}</button>
           </div>
         </div>
-
         <div class="space-y-3">
           ${inventory.map(i => `
             <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all">
-              <div class="max-w-[65%]">
+              <div class="max-w-[60%]">
                 <p class="font-bold text-gray-800 truncate">${escapeHtml(i.name)}</p>
                 <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
-                  ${i.quantity} ${escapeHtml(i.unit || "")} • ${i.expiry || "PENDING"}
+                  ${i.quantity} ${escapeHtml(i.unit || "")} • ${i.expiry || "No Expiry"}
                 </p>
               </div>
-              <div class="flex gap-4 items-center">
-                <button data-move="${i.id}" class="text-[10px] font-black text-amber-600 uppercase tracking-tighter px-3 py-2 bg-amber-50 rounded-lg hover:bg-amber-100">
-                  ${t.move_need || "Refill"}
-                </button>
-                
-                <button data-del="${i.id}" class="bg-slate-50 text-slate-400 hover:text-rose-500 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors border border-slate-100">
-                  ✕
-                </button>
+              <div class="flex gap-2 items-center">
+                <button data-move="${i.id}" class="text-[10px] font-black text-amber-600 uppercase tracking-tighter px-3 py-2 bg-amber-50 rounded-lg hover:bg-amber-100">${t.move_need || "Refill"}</button>
+                <button data-del="${i.id}" class="bg-slate-50 text-slate-400 hover:text-rose-500 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors border border-slate-100">✕</button>
               </div>
             </div>
           `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`}
@@ -82,47 +70,9 @@ export function renderUI({
       </div>
     `;
 
-    // Re-attach listeners (Removed the Empty listener)
-    document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
-    document.getElementById("btn-clear-inv").onclick = onClearAllInventory;
-    
-    root.querySelectorAll("[data-move]").forEach(btn => {
-      btn.onclick = () => onMove(btn.dataset.move, "inventory");
-    });
-    
-    root.querySelectorAll("[data-del]").forEach(btn => {
-      btn.onclick = () => onDelete("inventory", btn.dataset.del);
-    });
-    
-    return;
-  }
-
-    // RE-ATTACH LISTENERS (This part must follow the innerHTML)
-    document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
-    document.getElementById("btn-clear-inv").onclick = onClearAllInventory;
-    
-    root.querySelectorAll("[data-move]").forEach(btn => {
-      btn.onclick = () => onMove(btn.dataset.move, "inventory");
-    });
-    
-    root.querySelectorAll("[data-empty]").forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopImmediatePropagation(); // Prevents the double-popup glitch
-        onEmpty(btn.dataset.empty);
-      };
-    });
-    
-    root.querySelectorAll("[data-del]").forEach(btn => {
-      btn.onclick = () => onDelete("inventory", btn.dataset.del);
-    });
-    
-    return;
-  }
-    // Attach Listeners
     document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
     document.getElementById("btn-clear-inv").onclick = onClearAllInventory;
     root.querySelectorAll("[data-move]").forEach(b => b.onclick = () => onMove(b.dataset.move, "inventory"));
-    root.querySelectorAll("[data-empty]").forEach(b => b.onclick = () => onEmpty(b.dataset.empty));
     root.querySelectorAll("[data-del]").forEach(b => b.onclick = () => onDelete("inventory", b.dataset.del));
   }
 
@@ -141,7 +91,7 @@ export function renderUI({
             <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/10 items-center border-emerald-100">
               <div class="max-w-[50%]">
                 <p class="font-bold text-gray-800 truncate">${escapeHtml(i.name)}</p>
-                <p class="text-[10px] text-emerald-600 font-bold">${i.price ? formatMoney(i.price) : "No price"}</p>
+                <p class="text-[10px] text-emerald-600 font-bold">${i.price ? formatMoney(i.price) : "No price"} ${i.expiry ? `• Exp: ${i.expiry}` : ""}</p>
               </div>
               <div class="flex gap-2">
                 <button data-del="${i.id}" class="text-slate-400 text-[10px] font-bold uppercase px-2">Del</button>
@@ -166,45 +116,14 @@ export function renderUI({
     root.querySelectorAll("[data-del]").forEach(b => b.onclick = () => onDelete("shopping", b.dataset.del));
   }
 
-  // --- TAB: PLANNER ---
+  // --- TAB: PLANNER / REPORTS ---
   else if (activeTab === "planner") {
-    root.innerHTML = `
-      <div class="card text-center py-10">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">${t.nav_plan}</h2>
-        <button id="btn-recipe" class="bg-purple-600 text-white px-10 py-3 rounded-full font-black shadow-lg uppercase tracking-widest text-[10px]">Generate Recipe</button>
-        <div id="ai-recipe-out" class="mt-8 p-6 bg-slate-50 text-left text-xs whitespace-pre-wrap rounded-2xl border border-slate-200 text-slate-600 italic"></div>
-      </div>
-    `;
+    root.innerHTML = `<div class="card text-center py-10"><h2 class="text-2xl font-bold mb-4">${t.nav_plan}</h2><button id="btn-recipe" class="bg-purple-600 text-white px-10 py-3 rounded-full font-black text-[10px] uppercase tracking-widest">Generate Recipe</button><div id="ai-recipe-out" class="mt-8 p-6 bg-slate-50 text-left text-xs rounded-2xl border italic"></div></div>`;
     document.getElementById("btn-recipe").onclick = onRecipe;
-  }
-
-  // --- TAB: REPORTS (DASHBOARD) ---
-  else {
+  } else {
     const purchases = Array.isArray(monthPurchases) ? monthPurchases : [];
     const top3 = [...purchases].sort((a, b) => (b.cost || 0) - (a.cost || 0)).slice(0, 3);
-
-    root.innerHTML = `
-      <div class="grid grid-cols-2 gap-4 mb-6">
-        <div class="card text-center !p-4 bg-rose-50 border-rose-100 shadow-none">
-          <p class="text-[10px] font-black text-rose-600 uppercase mb-1">Waste</p>
-          <h3 class="text-3xl font-black text-rose-900">${historicalWaste}</h3>
-        </div>
-        <div class="card text-center !p-4 bg-emerald-50 border-emerald-100 shadow-none">
-          <p class="text-[10px] font-black text-emerald-600 uppercase mb-1">Stock</p>
-          <h3 class="text-3xl font-black text-emerald-900">${inventory.length}</h3>
-        </div>
-      </div>
-      ${budgetWidgetHTML}
-      <div class="mt-6 card">
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Top Spending</p>
-        ${top3.length > 0 ? top3.map(p => `
-          <div class="flex justify-between border-b border-slate-50 py-3 last:border-0">
-            <span class="text-sm font-bold text-slate-700">${escapeHtml(p.name)}</span>
-            <span class="text-sm font-black text-slate-800">${formatMoney(p.cost)}</span>
-          </div>
-        `).join("") : `<p class="text-xs text-slate-400 italic">No spending data yet.</p>`}
-      </div>
-    `;
+    root.innerHTML = `<div class="grid grid-cols-2 gap-4 mb-6"><div class="card text-center bg-rose-50 border-rose-100 shadow-none"><p class="text-[10px] font-black text-rose-600 uppercase mb-1">Waste</p><h3 class="text-3xl font-black text-rose-900">${historicalWaste}</h3></div><div class="card text-center bg-emerald-50 border-emerald-100 shadow-none"><p class="text-[10px] font-black text-emerald-600 uppercase mb-1">Stock</p><h3 class="text-3xl font-black text-emerald-900">${inventory.length}</h3></div></div>${budgetWidgetHTML}`;
     document.getElementById("btn-save-budget").onclick = () => onSaveBudget(document.getElementById("inp-budget").value);
     document.getElementById("btn-reset-month").onclick = onResetSpent;
     document.getElementById("btn-reset-all").onclick = onResetAll;
