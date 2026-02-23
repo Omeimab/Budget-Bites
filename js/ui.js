@@ -6,7 +6,7 @@ export function setHeaderText(t) {
   document.getElementById("nav-inventory").innerText = t.nav_inv;
   document.getElementById("nav-shopping").innerText = t.nav_shop;
   document.getElementById("nav-planner").innerText = t.nav_plan;
-  document.getElementById("nav-reports").innerText = t.nav_dash;
+  document.getElementById("nav-reports").innerText = t.nav_rep || t.nav_dash;
 }
 
 export function setOnlineState(t) {
@@ -21,7 +21,6 @@ export function setActiveTab(activeTab) {
   document.getElementById("nav-reports").classList.toggle("active", activeTab === "reports");
 }
 
-// ---------- Toast ----------
 export function showToast(message, type = "success") {
   const container = document.getElementById("toast-container");
   if (!container) return;
@@ -56,24 +55,29 @@ export function openModal(t, type, item) {
   document.getElementById("lbl-name").innerText = t.name;
   document.getElementById("lbl-qty").innerText = t.qty;
   document.getElementById("lbl-unit").innerText = t.unit;
-  document.getElementById("lbl-expiry").innerText = t.expiry_logic;
+  document.getElementById("lbl-expiry-date").innerText = t.lbl_expiry_date || t.expiry_logic;
 
-  // price label
+  // Sync Price & Category from i18n
   const lblPrice = document.getElementById("lbl-price");
-  if (lblPrice) lblPrice.innerText = "Total price (€)";
+  if (lblPrice) lblPrice.innerText = t.lbl_price || "Price";
 
   const inpPrice = document.getElementById("inp-price");
   if (inpPrice) inpPrice.value = item?.price ?? "";
 
-  // category
   const inpCat = document.getElementById("inp-category");
   if (inpCat) inpCat.value = item?.category ?? "";
 
-  document.getElementById("item-shelf-life").placeholder = t.expiry_placeholder;
+  // Fix: Ensure we use the correct ID for the new date input
+  const dateInp = document.getElementById("item-expiry-date");
+  if (dateInp) dateInp.value = item?.expiry ?? "";
+
   document.getElementById("btn-save").innerText = t.save;
   document.getElementById("btn-cancel").innerText = t.cancel;
 
-  document.getElementById("expiry-field").classList.toggle("hidden", type !== "inventory");
+  // Match the HTML container ID
+  const expiryField = document.getElementById("expiry-date-container");
+  if (expiryField) expiryField.classList.toggle("hidden", type !== "inventory");
+  
   document.getElementById("modal-container").classList.replace("hidden", "flex");
 }
 
@@ -81,7 +85,6 @@ export function closeModal() {
   document.getElementById("modal-container").classList.replace("flex", "hidden");
 }
 
-// ---------- helpers ----------
 function formatMoney(v) {
   const n = Number(v || 0);
   return `€${n.toFixed(2)}`;
@@ -101,37 +104,20 @@ function spendByCategory(shoppingList) {
   for (const it of shoppingList) {
     const cat = (it.category || "other").trim() || "other";
     const price = Number(it.price || 0);
-    const qty = Number(it.quantity || 1);
-    const total = (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
-    map[cat] = (map[cat] || 0) + total;
+    map[cat] = (map[cat] || 0) + price;
   }
   return map;
 }
 
-export function renderUI({
-  t,
-  lang,
-  activeTab,
-  inventory,
-  shoppingList,
-  historicalWaste,
-  monthlyBudget,
-  monthSpent,
+export function renderUI(state) {
+  const {
+    t, lang, activeTab, inventory, shoppingList,
+    historicalWaste, monthlyBudget, monthSpent,
+    onAdd, onMove, onDelete, onDeleteShopping,
+    onClearInventory, onClearShopping, onResetAll,
+    onSuggest, onRecipe, onSaveBudget, onResetSpent
+  } = state;
 
-  onAdd,
-  onMove,
-  onDelete,
-
-  onDeleteShopping,
-  onClearInventory,
-  onClearShopping,
-  onResetAll,
-
-  onSuggest,
-  onRecipe,
-  onSaveBudget,
-  onResetSpent
-}) {
   const root = document.getElementById("content-area");
   setActiveTab(activeTab);
 
@@ -143,265 +129,156 @@ export function renderUI({
   const isOver = budget > 0 && spent > budget;
 
   const budgetWidget = () => `
-    <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+    <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm mb-6">
       <div class="flex items-center justify-between">
-        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">Monthly Budget</p>
-        <p class="text-sm font-black text-slate-700">${formatMoney(spent)} <span class="text-slate-400 font-semibold">spent</span></p>
+        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.budget || 'Budget'}</p>
+        <p class="text-sm font-black text-slate-700">${formatMoney(spent)} <span class="text-slate-400 font-semibold">${t.spent || 'spent'}</span></p>
       </div>
-
       <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
         <div class="h-2 ${isOver ? "bg-rose-500" : "bg-emerald-500"}" style="width:${pct}%"></div>
       </div>
-
       <div class="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
-        <span>${pct}% used</span>
-        <span>${budget > 0 ? `${formatMoney(remaining)} remaining` : `Set a budget to track remaining`}</span>
+        <span>${pct}%</span>
+        <span>${budget > 0 ? `${formatMoney(remaining)} ${t.remaining || 'remaining'}` : 'Set budget'}</span>
       </div>
-
-      ${budget > 0 && remaining <= budget * 0.1 && !isOver ? `
-        <div class="mt-3 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-          ⚠️ Watch out: you're close to your monthly budget.
-        </div>
-      ` : ""}
-
-      ${isOver ? `
-        <div class="mt-3 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-          ⛔ You exceeded your monthly budget by ${formatMoney(Math.abs(remainingRaw))}.
-        </div>
-      ` : ""}
-
       <div class="mt-4 flex gap-3 items-center">
-        <div class="flex-1">
-          <p class="text-sm font-bold mb-1">Set monthly budget (€)</p>
-          <input id="inp-budget" type="number" min="0" step="1"
-            class="w-full border rounded-lg p-3"
-            placeholder="e.g. 300"
-            value="${budget > 0 ? String(budget) : ""}"
-          />
-        </div>
-        <button id="btn-save-budget"
-          class="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black shadow-md hover:bg-emerald-600">
-          Save
-        </button>
+        <input id="inp-budget" type="number" class="flex-1 border rounded-lg p-2 text-sm" placeholder="e.g. 300" value="${budget || ''}" />
+        <button id="btn-save-budget" class="bg-emerald-500 text-white px-4 py-2 rounded-lg font-black text-xs uppercase">${t.save}</button>
       </div>
-
-      <div class="mt-3 flex items-center justify-between gap-3">
-        <button id="btn-reset-month" class="text-xs text-red-500 font-bold hover:underline">
-          Reset monthly spending
-        </button>
-
-        <button id="btn-reset-all" class="text-xs text-slate-600 font-bold hover:underline">
-          Reset EVERYTHING
-        </button>
-      </div>
-
-      <p class="mt-2 text-xs text-slate-500">
-        Tip: Add prices to Shopping List items and click BOUGHT to track spending automatically.
-      </p>
     </div>
   `;
 
-  // ---------- INVENTORY ----------
+  // --- INVENTORY ---
   if (activeTab === "inventory") {
     root.innerHTML = `
       <div class="card">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-gray-800">${t.nav_inv}</h2>
-          <div class="flex gap-3">
-            <button id="btn-clear-inv" class="bg-slate-100 text-slate-700 px-5 py-2 rounded-full font-bold hover:bg-slate-200">
-              Clear all
-            </button>
-            <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600">
-              + ${t.add}
-            </button>
+          <h2 class="text-2xl font-black text-gray-800">${t.nav_inv}</h2>
+          <div class="flex gap-2">
+            <button id="btn-clear-inv" class="text-[10px] font-bold text-red-400 uppercase">${t.btn_clear || 'Clear'}</button>
+            <button id="btn-add-inv" class="bg-emerald-500 text-white px-5 py-2 rounded-xl font-bold shadow-md">+ ${t.add}</button>
           </div>
         </div>
-
         <div class="space-y-3">
-          ${
-            inventory.map(i => `
-              <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all">
-                <div>
-                  <p class="font-bold text-gray-800">${escapeHtml(i.name)}</p>
-                  <p class="text-xs text-gray-400 font-semibold">
-                    ${i.quantity} ${escapeHtml(i.unit || "")}
-                    • ${escapeHtml(i.expiry || "PENDING")}
-                    ${i.price != null && i.price !== "" ? ` • ${formatMoney(i.price)}` : ""}
-                    ${i.category ? ` • ${escapeHtml(i.category)}` : ""}
-                  </p>
-                </div>
-                <div class="flex gap-3">
-                  <button data-move="${i.id}" class="text-xs font-bold text-amber-600 uppercase tracking-tighter">${t.move_need}</button>
-                  <button data-del="${i.id}" class="text-xs text-red-400 font-bold uppercase tracking-tighter">X</button>
-                </div>
+          ${inventory.map(i => `
+            <div class="flex justify-between p-4 border rounded-xl items-center bg-white hover:border-emerald-200 transition-all">
+              <div>
+                <p class="font-bold text-gray-800">${escapeHtml(i.name)}</p>
+                <p class="text-[10px] text-gray-400 font-bold uppercase">
+                  ${i.quantity} ${escapeHtml(i.unit || "")} • ${i.expiry || "—"}
+                  ${i.category ? ` • ${escapeHtml(i.category)}` : ""}
+                </p>
               </div>
-            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`
-          }
+              <div class="flex gap-4">
+                <button data-move="${i.id}" class="text-[10px] font-black text-amber-500 uppercase">${t.move_need}</button>
+                <button data-del="${i.id}" class="text-gray-300 hover:text-red-500 font-bold">✕</button>
+              </div>
+            </div>
+          `).join("") || `<p class="text-center py-10 text-gray-300 italic">${t.empty_inv}</p>`}
         </div>
       </div>
     `;
-
     document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
     document.getElementById("btn-clear-inv").onclick = () => onClearInventory();
-
     root.querySelectorAll("[data-move]").forEach(btn => (btn.onclick = () => onMove(btn.dataset.move, "inventory")));
     root.querySelectorAll("[data-del]").forEach(btn => (btn.onclick = () => onDelete("inventory", btn.dataset.del)));
     return;
   }
 
-  // ---------- SHOPPING ----------
+  // --- SHOPPING ---
   if (activeTab === "shopping") {
-    const byCat = spendByCategory(shoppingList);
-    const topCats = Object.entries(byCat)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-
     root.innerHTML = `
       <div class="card">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-gray-800">${t.nav_shop}</h2>
-          <div class="flex gap-3">
-            <button id="btn-clear-shop" class="bg-slate-100 text-slate-700 px-5 py-2 rounded-full font-bold hover:bg-slate-200">
-              Clear all
-            </button>
-            <button id="btn-add-shop" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600">
-              + ${t.add}
-            </button>
+          <h2 class="text-2xl font-black text-gray-800">${t.nav_shop}</h2>
+          <div class="flex gap-2">
+            <button id="btn-clear-shop" class="text-[10px] font-bold text-red-400 uppercase">${t.btn_clear || 'Clear'}</button>
+            <button id="btn-add-shop" class="bg-emerald-500 text-white px-5 py-2 rounded-xl font-bold shadow-md">+ ${t.add}</button>
           </div>
         </div>
-
         ${budgetWidget()}
-
-        <div class="mt-4 bg-slate-50 border border-slate-100 rounded-xl p-4">
-          <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Top spending categories (shopping list)</p>
-          ${
-            topCats.length
-              ? topCats.map(([cat, total]) => `
-                  <div class="flex items-center justify-between text-sm font-semibold text-slate-700 py-1">
-                    <span>${escapeHtml(cat)}</span>
-                    <span>${formatMoney(total)}</span>
-                  </div>
-                `).join("")
-              : `<p class="text-sm text-slate-500">Add categories + prices to see insights.</p>`
-          }
-        </div>
-
-        <div class="space-y-3 mt-6 mb-6">
-          ${
-            shoppingList.map(i => `
-              <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center border-emerald-100">
-                <div>
-                  <p class="font-bold text-gray-800">
-                    ${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})
-                  </p>
-                  <p class="text-xs text-slate-500 font-semibold">
-                    ${i.price != null && i.price !== "" ? `Total price: ${formatMoney(i.price)}` : "No price yet"}
-                    ${i.category ? ` • ${escapeHtml(i.category)}` : ""}
-                  </p>
-                </div>
-
-                <div class="flex items-center gap-3">
-                  <button data-delshop="${i.id}"
-                    class="text-xs font-bold text-slate-500 hover:text-red-500 uppercase tracking-tighter">
-                    Remove
-                  </button>
-
-                  <button data-move="${i.id}"
-                    class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">
-                    ${t.move_bought}
-                  </button>
-                </div>
+        <div class="space-y-3">
+          ${shoppingList.map(i => `
+            <div class="flex justify-between p-4 border rounded-xl bg-white border-slate-100 items-center">
+              <div>
+                <p class="font-bold text-gray-800">${escapeHtml(i.name)}</p>
+                <p class="text-[10px] text-slate-400 font-bold uppercase">
+                  ${i.quantity} ${escapeHtml(i.unit || "")} ${i.price ? `• ${formatMoney(i.price)}` : ""}
+                </p>
               </div>
-            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`
-          }
+              <div class="flex items-center gap-3">
+                <button data-delshop="${i.id}" class="text-[10px] font-bold text-slate-300 hover:text-red-500 uppercase">✕</button>
+                <button data-move="${i.id}" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                  ${t.bought || t.move_bought}
+                </button>
+              </div>
+            </div>
+          `).join("") || `<p class="text-center py-10 text-gray-300 italic">${t.empty_shop}</p>`}
         </div>
-
-        <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-100 shadow-inner">
-          <button id="btn-suggest" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-black mb-2 uppercase tracking-widest shadow-md">
-            ${t.sugg_btn}
-          </button>
-          <div id="ai-out" class="text-xs italic text-indigo-700 leading-relaxed font-medium">${t.sugg_info}</div>
+        <div class="mt-6 bg-indigo-50 p-4 rounded-xl">
+           <button id="btn-suggest" class="text-[10px] bg-indigo-600 text-white px-3 py-1.5 rounded font-black uppercase mb-2">${t.sugg_btn}</button>
+           <div id="ai-out" class="text-[10px] italic text-indigo-700 font-medium">${t.sugg_info}</div>
         </div>
       </div>
     `;
-
     document.getElementById("btn-add-shop").onclick = () => onAdd("shopping");
     document.getElementById("btn-clear-shop").onclick = () => onClearShopping();
     document.getElementById("btn-suggest").onclick = () => onSuggest();
-
     root.querySelectorAll("[data-move]").forEach(btn => (btn.onclick = () => onMove(btn.dataset.move, "shopping")));
     root.querySelectorAll("[data-delshop]").forEach(btn => (btn.onclick = () => onDeleteShopping(btn.dataset.delshop)));
-
-    document.getElementById("btn-save-budget").onclick = () => {
-      const val = document.getElementById("inp-budget").value;
-      onSaveBudget(val);
-      showToast("Budget saved ✅", "success");
-    };
-
-    document.getElementById("btn-reset-month").onclick = () => onResetSpent();
-    document.getElementById("btn-reset-all").onclick = () => onResetAll();
+    document.getElementById("btn-save-budget").onclick = () => onSaveBudget(document.getElementById("inp-budget").value);
     return;
   }
 
-  // ---------- PLANNER ----------
+  // --- PLANNER ---
   if (activeTab === "planner") {
     root.innerHTML = `
       <div class="card text-center py-10">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">${t.nav_plan}</h2>
-        <p class="text-gray-500 mb-8 max-w-sm mx-auto font-medium">${t.recipe_info}</p>
-        <button id="btn-recipe"
-          class="bg-purple-600 text-white px-10 py-3 rounded-full font-extrabold shadow-lg shadow-purple-200 hover:scale-105 transition-transform uppercase tracking-widest text-xs">
+        <h2 class="text-2xl font-black mb-4 text-gray-800">${t.nav_plan}</h2>
+        <p class="text-xs text-gray-500 mb-8 max-w-sm mx-auto font-bold uppercase tracking-widest">${t.recipe_info}</p>
+        <button id="btn-recipe" class="bg-purple-600 text-white px-10 py-3 rounded-full font-black shadow-lg uppercase tracking-widest text-xs">
           ${t.recipe_btn}
         </button>
-        <div id="ai-recipe-out"
-          class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div>
+        <div id="ai-recipe-out" class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border border-slate-100 leading-relaxed text-slate-700"></div>
       </div>
     `;
     document.getElementById("btn-recipe").onclick = () => onRecipe();
     return;
   }
 
-  // ---------- DASHBOARD ----------
+  // --- REPORTS/DASHBOARD ---
   const byCat = spendByCategory(shoppingList);
   const topCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   root.innerHTML = `
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-      <div class="card text-center bg-rose-50 border-2 border-rose-100 shadow-none">
-        <p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-2">${t.stat_waste}</p>
-        <h3 class="text-6xl font-black text-rose-900">${historicalWaste}</h3>
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="card bg-rose-50 border-rose-100 text-center">
+        <p class="text-[10px] font-black text-rose-600 uppercase mb-1">${t.stat_waste}</p>
+        <h3 class="text-4xl font-black text-rose-900">${historicalWaste}</h3>
       </div>
-      <div class="card text-center bg-emerald-50 border-2 border-emerald-100 shadow-none">
-        <p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">${t.stat_stock}</p>
-        <h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3>
+      <div class="card bg-emerald-50 border-emerald-100 text-center">
+        <p class="text-[10px] font-black text-emerald-600 uppercase mb-1">${t.stat_stock}</p>
+        <h3 class="text-4xl font-black text-emerald-900">${inventory.length}</h3>
       </div>
     </div>
-
-    <div class="mt-6">
-      ${budgetWidget()}
-    </div>
-
-    <div class="mt-6 card">
-      <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Where you spend the most (shopping list)</p>
-      ${
-        topCats.length
-          ? topCats.map(([cat, total]) => `
-              <div class="flex items-center justify-between text-sm font-semibold text-slate-700 py-1">
-                <span>${escapeHtml(cat)}</span>
-                <span>${formatMoney(total)}</span>
-              </div>
-            `).join("")
-          : `<p class="text-sm text-slate-500">Add categories + prices in items to see this.</p>`
-      }
+    ${budgetWidget()}
+    <div class="card">
+      <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Top Spending Categories</p>
+      <div class="space-y-2">
+        ${topCats.length ? topCats.map(([cat, total]) => `
+          <div class="flex justify-between text-sm font-bold text-slate-700">
+            <span>${escapeHtml(cat)}</span>
+            <span>${formatMoney(total)}</span>
+          </div>
+        `).join("") : `<p class="text-xs italic text-slate-400">Add prices to see data.</p>`}
+      </div>
+      <div class="mt-10 pt-6 border-t border-slate-50 flex flex-col gap-2">
+         <button id="btn-reset-month" class="text-[10px] text-red-400 font-black uppercase hover:underline">Reset Month</button>
+         <button id="btn-reset-all" class="text-[10px] text-slate-300 font-black uppercase hover:underline">Reset Everything</button>
+      </div>
     </div>
   `;
-
-  document.getElementById("btn-save-budget").onclick = () => {
-    const val = document.getElementById("inp-budget").value;
-    onSaveBudget(val);
-    showToast("Budget saved ✅", "success");
-  };
-
+  document.getElementById("btn-save-budget").onclick = () => onSaveBudget(document.getElementById("inp-budget").value);
   document.getElementById("btn-reset-month").onclick = () => onResetSpent();
   document.getElementById("btn-reset-all").onclick = () => onResetAll();
 }
