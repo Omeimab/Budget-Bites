@@ -4,52 +4,76 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Budget Bites</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com"> 
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  
   <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
     .tab-button.active { background-color: #10b981; color: white; box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.4); transform: translateY(-2px); }
     .tab-button { transition: all 0.2s; border-bottom: 3px solid transparent; cursor: pointer; }
     .card { background-color: white; border-radius: 16px; box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
+    .loader { border: 3px solid #f3f3f3; border-top: 3px solid #10b981; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
     .hidden { display: none !important; }
-    .progress-bar { transition: width 0.5s ease-in-out; }
   </style>
 </head>
+
 <body class="min-h-screen p-4 md:p-8">
-  <div class="max-w-4xl mx-auto">
+  <div id="toast-container" class="fixed top-4 right-4 z-[9999] space-y-2"></div>
+
+  <div class="max-w-6xl mx-auto">
     <header class="text-center mb-10">
       <div class="flex items-center justify-center gap-3">
         <h1 class="text-4xl font-extrabold text-gray-800">Budget Bites 🍽️</h1>
-        <select id="lang-select" class="text-xs font-bold border rounded-xl px-2 py-1 bg-white shadow-sm outline-none cursor-pointer">
+        <select id="lang-select" class="text-xs font-bold border rounded-xl px-2 py-1 bg-white shadow-sm outline-none">
           <option value="en">EN</option>
           <option value="de">DE</option>
           <option value="it">IT</option>
         </select>
       </div>
+
       <p id="app-subtitle" class="text-gray-500 mt-1"></p>
+
+      <div class="flex items-center justify-center mt-2 space-x-2">
+        <div id="sync-spinner" class="loader"></div>
+        <p id="user-info" class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Initializing...</p>
+      </div>
     </header>
 
-    <nav class="flex justify-center mb-10 bg-white p-2 rounded-full shadow-lg max-w-fit mx-auto overflow-x-auto">
-      <button id="nav-inventory" class="tab-button active px-5 py-2 mx-1 text-sm font-bold rounded-full">Inv</button>
-      <button id="nav-shopping" class="tab-button px-5 py-2 mx-1 text-sm font-bold rounded-full">Shop</button>
-      <button id="nav-planner" class="tab-button px-5 py-2 mx-1 text-sm font-bold rounded-full">Plan</button>
-      <button id="nav-reports" class="tab-button px-5 py-2 mx-1 text-sm font-bold rounded-full">Stats</button>
+    <nav class="flex justify-center mb-10 bg-white p-2 rounded-full shadow-lg max-w-fit mx-auto">
+      <button id="nav-inventory" class="tab-button active px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
+      <button id="nav-shopping" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
+      <button id="nav-planner" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
+      <button id="nav-reports" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
     </nav>
 
-    <main id="content-area"></main>
+    <main id="content-area">
+      <div class="flex flex-col justify-center items-center h-48 card">
+        <div class="loader mb-4" style="width: 40px; height: 40px;"></div>
+        <p id="loading-message" class="text-lg text-gray-400 italic font-medium">Loading...</p>
+      </div>
+    </main>
   </div>
 
   <div id="modal-container" class="fixed inset-0 bg-gray-900/75 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
       <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800"></h3>
+
       <form id="item-form" class="space-y-4">
+        <input type="hidden" id="item-id">
         <input type="hidden" id="list-type">
+
         <div>
           <label id="lbl-name" class="block text-sm font-bold text-gray-700 mb-1"></label>
-          <input type="text" id="item-name" required class="w-full rounded-xl border-gray-200 p-3 border outline-none focus:ring-2 focus:ring-emerald-500">
+          <input type="text" id="item-name" required class="w-full rounded-xl border-gray-200 p-3 border focus:ring-2 focus:ring-emerald-500 outline-none">
         </div>
+
         <div class="flex space-x-4">
           <div class="flex-1">
             <label id="lbl-qty" class="block text-sm font-bold text-gray-700 mb-1"></label>
@@ -60,193 +84,26 @@
             <input type="text" id="item-unit" class="w-full rounded-xl border-gray-200 p-3 border outline-none">
           </div>
         </div>
+
         <div>
-          <label id="lbl-price" class="text-sm font-bold text-gray-700 block mb-1">Total Price (€)</label>
-          <input id="inp-price" type="number" step="0.01" min="0" class="w-full p-3 border border-gray-200 rounded-xl outline-none" placeholder="0.00">
+          <label id="lbl-price" class="text-sm font-bold text-gray-700 block mb-1">Total price (€)</label>
+          <input id="inp-price" type="number" step="0.01" min="0" class="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" placeholder="e.g. 2.99">
+          <p class="text-[10px] text-gray-400 mt-1">Tip: enter the total price for this item (not per unit).</p>
         </div>
-        <div id="expiry-field" class="pt-4 border-t border-dashed">
+
+        <div id="expiry-field" class="hidden pt-4 border-t border-dashed">
           <label id="lbl-expiry" class="block text-xs font-black text-emerald-600 uppercase mb-2"></label>
-          <input type="number" id="item-shelf-life" placeholder="e.g. 7" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border outline-none">
+          <input type="number" id="item-shelf-life" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border outline-none">
         </div>
+
         <div class="flex justify-end space-x-3 pt-6">
-          <button type="button" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl"></button>
-          <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl"></button>
+          <button type="button" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
+          <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-colors">Save</button>
         </div>
       </form>
     </div>
   </div>
 
-  <script>
-    const translations = {
-      en: {
-        nav_inv: "Inventory", nav_shop: "Shopping", nav_plan: "Planner", nav_stats: "Reports",
-        subtitle: "Smart Kitchen Manager", add: "Add Item", save: "Save", cancel: "Cancel",
-        name: "Name", qty: "Qty", unit: "Unit", expiry: "Shelf Life (Days)",
-        empty_inv: "Kitchen is empty.", empty_shop: "List is clear.", bought: "Bought",
-        exp_prefix: "Exp", budget_title: "Monthly Budget", spent: "spent", remaining: "remaining"
-      },
-      de: {
-        nav_inv: "Bestand", nav_shop: "Einkauf", nav_plan: "Planer", nav_stats: "Berichte",
-        subtitle: "Küchenmanager", add: "Hinzufügen", save: "Speichern", cancel: "Abbrechen",
-        name: "Name", qty: "Menge", unit: "Einheit", expiry: "Haltbarkeit (Tage)",
-        empty_inv: "Küche ist leer.", empty_shop: "Liste ist leer.", bought: "Gekauft",
-        exp_prefix: "Bis", budget_title: "Monatsbudget", spent: "ausgegeben", remaining: "übrig"
-      },
-      it: {
-        nav_inv: "Dispensa", nav_shop: "Spesa", nav_plan: "Menu", nav_stats: "Report",
-        subtitle: "Gestore Cucina", add: "Aggiungi", save: "Salva", cancel: "Annulla",
-        name: "Nome", qty: "Qtà", unit: "Unità", expiry: "Scadenza (Giorni)",
-        empty_inv: "La dispensa è vuota.", empty_shop: "Nulla da comprare.", bought: "Preso",
-        exp_prefix: "Scad", budget_title: "Budget Mensile", spent: "spesi", remaining: "rimasti"
-      }
-    };
-
-    let state = {
-      lang: localStorage.getItem('bb_lang') || 'en',
-      inventory: JSON.parse(localStorage.getItem('bb_inventory')) || [],
-      shopping: JSON.parse(localStorage.getItem('bb_shopping')) || [],
-      budget: parseFloat(localStorage.getItem('bb_budget')) || 200,
-      spent: parseFloat(localStorage.getItem('bb_spent')) || 0,
-      activeTab: 'inventory'
-    };
-
-    function draw() {
-      const t = translations[state.lang];
-      const root = document.getElementById("content-area");
-      
-      // Update Navbar
-      document.getElementById('nav-inventory').innerText = t.nav_inv;
-      document.getElementById('nav-shopping').innerText = t.nav_shop;
-      document.getElementById('nav-planner').innerText = t.nav_plan;
-      document.getElementById('nav-reports').innerText = t.nav_stats;
-      document.getElementById('app-subtitle').innerText = t.subtitle;
-
-      // Render Dashboard (Budget Bar) if on Shop or Stats
-      let budgetHtml = '';
-      if (state.activeTab === 'shopping' || state.activeTab === 'reports') {
-        const pct = Math.min(100, (state.spent / state.budget) * 100);
-        budgetHtml = `
-          <div class="card mb-6">
-            <div class="flex justify-between items-center mb-2">
-              <span class="text-xs font-black uppercase text-gray-400">${t.budget_title}</span>
-              <span class="text-sm font-bold text-gray-700">€${state.spent.toFixed(2)} / €${state.budget}</span>
-            </div>
-            <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
-              <div class="bg-emerald-500 h-full progress-bar" style="width: ${pct}%"></div>
-            </div>
-          </div>`;
-      }
-
-      if (state.activeTab === 'inventory') {
-        renderInventory(root, t);
-      } else if (state.activeTab === 'shopping') {
-        root.innerHTML = budgetHtml;
-        renderShopping(root, t);
-      } else if (state.activeTab === 'planner') {
-        renderPlanner(root, t);
-      } else {
-        root.innerHTML = budgetHtml;
-        renderReports(root, t);
-      }
-    }
-
-    function renderInventory(root, t) {
-      let items = state.inventory.map((item, i) => `
-        <div class="flex justify-between p-4 border rounded-xl items-center bg-white mb-2 shadow-sm">
-          <div><p class="font-bold">${item.name}</p><p class="text-[10px] text-gray-400 font-bold uppercase">${item.qty} ${item.unit} • ${t.exp_prefix}: ${item.expiry}</p></div>
-          <button onclick="removeItem('inventory', ${i})" class="text-red-300 px-2">✕</button>
-        </div>`).join('');
-      root.innerHTML = `<div class="card"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold">${t.nav_inv}</h2><button onclick="openModal('inventory')" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold">+ ${t.add}</button></div>${items || `<p class="text-center italic text-gray-400 py-10">${t.empty_inv}</p>`}</div>`;
-    }
-
-    function renderShopping(root, t) {
-      let items = state.shopping.map((item, i) => `
-        <div class="flex justify-between p-4 border rounded-xl items-center bg-emerald-50/20 border-emerald-100 mb-2">
-          <div><p class="font-bold">${item.name}</p><p class="text-[10px] text-emerald-600 font-bold uppercase">€${item.price || '0.00'}</p></div>
-          <div class="flex gap-2"><button onclick="moveToInventory(${i})" class="bg-emerald-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase">${t.bought}</button>
-          <button onclick="removeItem('shopping', ${i})" class="text-gray-300 px-2">✕</button></div>
-        </div>`).join('');
-      root.innerHTML += `<div class="card"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold">${t.nav_shop}</h2><button onclick="openModal('shopping')" class="text-emerald-500 font-bold text-sm uppercase">+ ${t.add}</button></div>${items || `<p class="text-center italic text-gray-400 py-10">${t.empty_shop}</p>`}</div>`;
-    }
-
-    function renderPlanner(root, t) {
-      root.innerHTML = `<div class="card text-center py-10"><h2 class="text-2xl font-bold mb-4">${t.nav_plan}</h2><p class="text-gray-500 mb-6 text-sm">Generate a recipe using your inventory.</p><button onclick="alert('AI Coming Soon')" class="bg-purple-600 text-white px-8 py-3 rounded-full font-black uppercase text-xs">Generate Recipe</button></div>`;
-    }
-
-    function renderReports(root, t) {
-        root.innerHTML += `<div class="grid grid-cols-2 gap-4"><div class="card text-center"><p class="text-[10px] font-bold text-gray-400 uppercase">Stock</p><h3 class="text-2xl font-black">${state.inventory.length}</h3></div><div class="card text-center"><p class="text-[10px] font-bold text-gray-400 uppercase">Budget Left</p><h3 class="text-2xl font-black">€${(state.budget - state.spent).toFixed(2)}</h3></div></div>`;
-    }
-
-    window.openModal = (type) => {
-      const t = translations[state.lang];
-      document.getElementById('list-type').value = type;
-      document.getElementById('modal-title').innerText = t.add;
-      document.getElementById('lbl-name').innerText = t.name;
-      document.getElementById('lbl-qty').innerText = t.qty;
-      document.getElementById('lbl-unit').innerText = t.unit;
-      document.getElementById('lbl-expiry').innerText = t.expiry;
-      document.getElementById('btn-cancel').innerText = t.cancel;
-      document.getElementById('btn-save').innerText = t.save;
-      document.getElementById('modal-container').classList.replace('hidden', 'flex');
-    };
-
-    document.getElementById('item-form').onsubmit = (e) => {
-      e.preventDefault();
-      const type = document.getElementById('list-type').value;
-      const days = parseInt(document.getElementById('item-shelf-life').value) || 0;
-      let expDate = "---";
-      if(days > 0) {
-        const d = new Date(); d.setDate(d.getDate() + days); expDate = d.toISOString().split('T')[0];
-      }
-      const item = {
-        name: document.getElementById('item-name').value,
-        qty: document.getElementById('item-quantity').value,
-        unit: document.getElementById('item-unit').value,
-        price: parseFloat(document.getElementById('inp-price').value) || 0,
-        expiry: expDate
-      };
-      if(type === 'inventory') state.inventory.push(item);
-      else state.shopping.push(item);
-      save();
-      document.getElementById('modal-container').classList.replace('flex', 'hidden');
-      document.getElementById('item-form').reset();
-      draw();
-    };
-
-    window.moveToInventory = (i) => {
-        const item = state.shopping.splice(i, 1)[0];
-        state.spent += item.price;
-        state.inventory.push(item);
-        save(); draw();
-    };
-
-    window.removeItem = (type, i) => {
-        if(type === 'inventory') state.inventory.splice(i, 1);
-        else state.shopping.splice(i, 1);
-        save(); draw();
-    };
-
-    function save() {
-      localStorage.setItem('bb_inventory', JSON.stringify(state.inventory));
-      localStorage.setItem('bb_shopping', JSON.stringify(state.shopping));
-      localStorage.setItem('bb_spent', state.spent);
-      localStorage.setItem('bb_lang', state.lang);
-    }
-
-    document.getElementById('lang-select').onchange = (e) => { state.lang = e.target.value; save(); draw(); };
-    document.getElementById('btn-cancel').onclick = () => document.getElementById('modal-container').classList.replace('flex', 'hidden');
-
-    const navs = ['inventory', 'shopping', 'planner', 'reports'];
-    navs.forEach(n => {
-      document.getElementById('nav-' + n).onclick = () => {
-        state.activeTab = n;
-        navs.forEach(x => document.getElementById('nav-' + x).classList.remove('active'));
-        document.getElementById('nav-' + n).classList.add('active');
-        draw();
-      };
-    });
-
-    draw();
-  </script>
+  <script type="module" src="./js/app.js" defer></script>
 </body>
 </html>
