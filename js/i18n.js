@@ -36,6 +36,8 @@ export const I18N = {
     plannedSpend: "Planned spend",
     tripBudget: "Shopping trip budget (€)",
     tripBudgetShort: "Trip budget",
+    setTripBudget: "Set trip budget (€)",
+    resetTripBudget: "Reset trip budget",
     remaining: "Remaining",
     reset: "Reset",
 
@@ -52,7 +54,9 @@ export const I18N = {
     recipePlaceholder: "Recipe details can be added next.",
 
     monthlyBudget: "Monthly budget (€)",
+    setMonthlyBudget: "Set monthly budget (€)",
     spentThisMonth: "Spent this month",
+    monthTip: "Tip: add total prices and click BOUGHT to track spending automatically.",
 
     expired: "Expired",
     daysLeft: "days left",
@@ -64,7 +68,7 @@ export const I18N = {
     inventoryBlockHint: "All items currently in your inventory (including bought items from shopping).",
 
     categoryCircleTitle: "By category",
-    categoryCircleHint: "This month (from inventory additions)",
+    categoryCircleHint: "This month (from bought items)",
     noSpending: "No spending data yet."
   },
 
@@ -105,6 +109,8 @@ export const I18N = {
     plannedSpend: "Geplante Ausgaben",
     tripBudget: "Einkaufsbudget (€)",
     tripBudgetShort: "Budget",
+    setTripBudget: "Einkaufsbudget festlegen (€)",
+    resetTripBudget: "Einkaufsbudget zurücksetzen",
     remaining: "Übrig",
     reset: "Zurücksetzen",
 
@@ -113,7 +119,7 @@ export const I18N = {
     budgetOver: "Budget überschritten ❌",
 
     price: "Preis",
-    expiryIn: "Haltbar",
+    expiryIn: "Haltbar in",
     days: "Tage",
 
     generateRecipes: "Rezepte generieren",
@@ -121,7 +127,9 @@ export const I18N = {
     recipePlaceholder: "Rezept-Details können als Nächstes ergänzt werden.",
 
     monthlyBudget: "Monatsbudget (€)",
+    setMonthlyBudget: "Monatsbudget festlegen (€)",
     spentThisMonth: "Ausgaben diesen Monat",
+    monthTip: "Tipp: Gesamtpreise hinzufügen und BOUGHT klicken, um Ausgaben zu tracken.",
 
     expired: "Abgelaufen",
     daysLeft: "Tage übrig",
@@ -133,7 +141,7 @@ export const I18N = {
     inventoryBlockHint: "Alle Artikel im Vorrat (inkl. aus Einkaufsliste gekauft).",
 
     categoryCircleTitle: "Nach Kategorie",
-    categoryCircleHint: "Diesen Monat (aus Vorratszugängen)",
+    categoryCircleHint: "Diesen Monat (aus gekauften Artikeln)",
     noSpending: "Noch keine Ausgabedaten."
   },
 
@@ -174,6 +182,8 @@ export const I18N = {
     plannedSpend: "Spesa prevista",
     tripBudget: "Budget spesa (€)",
     tripBudgetShort: "Budget",
+    setTripBudget: "Imposta budget spesa (€)",
+    resetTripBudget: "Reset budget spesa",
     remaining: "Rimanente",
     reset: "Reset",
 
@@ -190,7 +200,9 @@ export const I18N = {
     recipePlaceholder: "Dettagli ricetta da aggiungere dopo.",
 
     monthlyBudget: "Budget mensile (€)",
+    setMonthlyBudget: "Imposta budget mensile (€)",
     spentThisMonth: "Speso questo mese",
+    monthTip: "Tip: aggiungi i prezzi totali e clicca BOUGHT per tracciare la spesa.",
 
     expired: "Scaduto",
     daysLeft: "giorni rimasti",
@@ -199,10 +211,10 @@ export const I18N = {
     noExpired: "Niente di urgente 🎉",
 
     inventoryBlockTitle: "Dispensa",
-    inventoryBlockHint: "Tutti gli elementi in dispensa (inclusi quelli comprati).",
+    inventoryBlockHint: "Tutti gli elementi in dispensa (inclusi quelli comprati dalla lista spesa).",
 
     categoryCircleTitle: "Per categoria",
-    categoryCircleHint: "Questo mese (da elementi in dispensa)",
+    categoryCircleHint: "Questo mese (da articoli comprati)",
     noSpending: "Nessun dato spesa."
   }
 };
