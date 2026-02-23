@@ -13,30 +13,34 @@ import {
   toast
 } from "./ui.js";
 
-const state = loadState() ?? defaultState();
+console.log("[BudgetBites] app.js loaded");
+
+var state = loadState();
+if (!state) state = defaultState();
 
 boot();
 
 function boot() {
   document.getElementById("lang-select").value = state.lang;
+
   setHeader(state.lang);
   setActiveTab(state.activeTab);
   setStatus(state.lang, "initializing");
 
-  document.getElementById("nav-inventory").onclick = () => go("inventory");
-  document.getElementById("nav-shopping").onclick = () => go("shopping");
-  document.getElementById("nav-planner").onclick = () => go("planner");
-  document.getElementById("nav-reports").onclick = () => go("reports");
+  document.getElementById("nav-inventory").onclick = function () { go("inventory"); };
+  document.getElementById("nav-shopping").onclick = function () { go("shopping"); };
+  document.getElementById("nav-planner").onclick = function () { go("planner"); };
+  document.getElementById("nav-reports").onclick = function () { go("reports"); };
 
-  document.getElementById("lang-select").onchange = (e) => {
+  document.getElementById("lang-select").onchange = function (e) {
     state.lang = e.target.value;
     persist();
     setHeader(state.lang);
     render();
   };
 
-  document.getElementById("modal-container").onclick = (e) => {
-    if (e.target.id === "modal-container") closeModal();
+  document.getElementById("modal-container").onclick = function (e) {
+    if (e.target && e.target.id === "modal-container") closeModal();
   };
 
   render();
@@ -57,36 +61,45 @@ function render() {
   setHeader(state.lang);
   setActiveTab(state.activeTab);
 
-  const handlers = {
-    openAdd: (listType) => {
-      openModal(
-        { lang: state.lang, mode: "add", listType, item: null },
-        (payload) => {
-          upsertItem(payload);
-          closeModal();
-          toast("Saved!");
-          render();
-        }
-      );
+  var handlers = {
+    openAdd: function (listType) {
+      var modalArgs = {
+        lang: state.lang,
+        mode: "add",
+        listType: listType,
+        item: null
+      };
+
+      openModal(modalArgs, function (payload) {
+        upsertItem(payload);
+        closeModal();
+        toast("Saved!");
+        render();
+      });
     },
 
-    openEdit: (listType, id) => {
-      const item = findItem(listType, id);
+    openEdit: function (listType, id) {
+      var item = findItem(listType, id);
       if (!item) return;
-      openModal(
-        { lang: state.lang, mode: "edit", listType, item },
-        (payload) => {
-          upsertItem(payload);
-          closeModal();
-          toast("Updated!");
-          render();
-        }
-      );
+
+      var modalArgs = {
+        lang: state.lang,
+        mode: "edit",
+        listType: listType,
+        item: item
+      };
+
+      openModal(modalArgs, function (payload) {
+        upsertItem(payload);
+        closeModal();
+        toast("Updated!");
+        render();
+      });
     },
 
-    remove: (listType, id) => {
-      const arr = listType === "inventory" ? state.inventory : state.shopping;
-      const idx = arr.findIndex(x => x.id === id);
+    remove: function (listType, id) {
+      var arr = listType === "inventory" ? state.inventory : state.shopping;
+      var idx = arr.findIndex(function (x) { return x.id === id; });
       if (idx >= 0) {
         arr.splice(idx, 1);
         persist();
@@ -95,8 +108,8 @@ function render() {
       }
     },
 
-    toggleBought: (id) => {
-      const it = state.shopping.find(x => x.id === id);
+    toggleBought: function (id) {
+      var it = state.shopping.find(function (x) { return x.id === id; });
       if (!it) return;
       it.bought = !it.bought;
       it.boughtAtTs = it.bought ? Date.now() : null;
@@ -104,7 +117,7 @@ function render() {
       render();
     },
 
-    updateTripBudget: (val) => {
+    updateTripBudget: function (val) {
       state.settings.shoppingTripBudget = Number(val || 0);
       persist();
       render();
@@ -112,12 +125,24 @@ function render() {
     }
   };
 
-  if (state.activeTab === "inventory") return renderInventory(state, handlers);
-  if (state.activeTab === "shopping") return renderShopping(state, handlers);
-  if (state.activeTab === "planner") return renderPlanner(state);
+  if (state.activeTab === "inventory") {
+    renderInventory(state, handlers);
+    return;
+  }
+
+  if (state.activeTab === "shopping") {
+    renderShopping(state, handlers);
+    return;
+  }
+
+  if (state.activeTab === "planner") {
+    renderPlanner(state);
+    return;
+  }
+
   if (state.activeTab === "reports") {
     renderReports(state);
-    wireReportsBudget((val) => {
+    wireReportsBudget(function (val) {
       state.settings.monthlyBudget = Number(val || 0);
       persist();
       toast("Monthly budget saved!");
@@ -128,56 +153,71 @@ function render() {
 }
 
 function findItem(listType, id) {
-  const arr = listType === "inventory" ? state.inventory : state.shopping;
-  return arr.find(x => x.id === id);
+  var arr = listType === "inventory" ? state.inventory : state.shopping;
+  return arr.find(function (x) { return x.id === id; });
 }
 
 function upsertItem(payload) {
-  const listType = payload.listType;
-  const arr = listType === "inventory" ? state.inventory : state.shopping;
+  var listType = payload.listType;
+  var arr = listType === "inventory" ? state.inventory : state.shopping;
 
-  const now = Date.now();
-  const isNew = !payload.id;
+  var now = Date.now();
+  var isNew = !payload.id;
 
-  const base = {
-    id: payload.id ?? uid(),
+  var base = {
+    id: payload.id ? payload.id : uid(),
     name: payload.name,
-    category: payload.category || "general",
+    category: payload.category ? payload.category : "general",
     qty: Number(payload.qty || 1),
-    unit: payload.unit || "",
-    priceTotal: Number(payload.priceTotal || 0),
+    unit: payload.unit ? payload.unit : "",
+    priceTotal: Number(payload.priceTotal || 0)
   };
 
   if (listType === "inventory") {
-    const shelfDays = Number(payload.shelfLifeDays || 0);
-    const expiryTs = shelfDays > 0 ? (now + shelfDays * 24 * 60 * 60 * 1000) : null;
+    var shelfDays = Number(payload.shelfLifeDays || 0);
+    var expiryTs = shelfDays > 0 ? (now + shelfDays * 24 * 60 * 60 * 1000) : null;
 
-    const prev = findItem("inventory", base.id);
+    var prev = findItem("inventory", base.id);
 
-    const item = {
-      ...base,
+    var item = {
+      id: base.id,
+      name: base.name,
+      category: base.category,
+      qty: base.qty,
+      unit: base.unit,
+      priceTotal: base.priceTotal,
       shelfLifeDays: shelfDays,
-      expiryTs,
-      createdAtTs: isNew ? now : (prev?.createdAtTs ?? now),
+      expiryTs: expiryTs,
+      createdAtTs: isNew ? now : (prev && prev.createdAtTs ? prev.createdAtTs : now)
     };
 
-    const idx = arr.findIndex(x => x.id === item.id);
-    if (idx >= 0) arr[idx] = item; else arr.push(item);
+    var idxInv = arr.findIndex(function (x) { return x.id === item.id; });
+    if (idxInv >= 0) arr[idxInv] = item;
+    else arr.push(item);
+
     persist();
     return;
   }
 
   if (listType === "shopping") {
-    const prev = findItem("shopping", base.id);
-    const item = {
-      ...base,
-      bought: prev?.bought ?? false,
-      createdAtTs: isNew ? now : (prev?.createdAtTs ?? now),
-      boughtAtTs: prev?.boughtAtTs ?? null,
+    var prevS = findItem("shopping", base.id);
+
+    var itemS = {
+      id: base.id,
+      name: base.name,
+      category: base.category,
+      qty: base.qty,
+      unit: base.unit,
+      priceTotal: base.priceTotal,
+      bought: prevS ? !!prevS.bought : false,
+      createdAtTs: isNew ? now : (prevS && prevS.createdAtTs ? prevS.createdAtTs : now),
+      boughtAtTs: prevS ? (prevS.boughtAtTs || null) : null
     };
 
-    const idx = arr.findIndex(x => x.id === item.id);
-    if (idx >= 0) arr[idx] = item; else arr.push(item);
+    var idxShop = arr.findIndex(function (x) { return x.id === itemS.id; });
+    if (idxShop >= 0) arr[idxShop] = itemS;
+    else arr.push(itemS);
+
     persist();
   }
 }
