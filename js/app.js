@@ -217,7 +217,7 @@ function upsertItem(payload) {
     var idxShop = arr.findIndex(function (x) { return x.id === itemS.id; });
     if (idxShop >= 0) arr[idxShop] = itemS;
     else arr.push(itemS);
-
+//trig
     persist();
   }
 }
