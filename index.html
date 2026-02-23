@@ -7,8 +7,6 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://www.gstatic.com"> 
-
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   
   <script src="https://cdn.tailwindcss.com"></script>
@@ -38,72 +36,230 @@
         </select>
       </div>
 
-      <p id="app-subtitle" class="text-gray-500 mt-1"></p>
+      <p id="app-subtitle" class="text-gray-500 mt-1">Smart Kitchen Manager</p>
 
       <div class="flex items-center justify-center mt-2 space-x-2">
-        <div id="sync-spinner" class="loader"></div>
-        <p id="user-info" class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Initializing...</p>
+        <div id="sync-spinner" class="loader hidden"></div>
+        <p id="user-info" class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Local Session</p>
       </div>
     </header>
 
     <nav class="flex justify-center mb-10 bg-white p-2 rounded-full shadow-lg max-w-fit mx-auto">
-      <button id="nav-inventory" class="tab-button active px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
-      <button id="nav-shopping" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
-      <button id="nav-planner" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
-      <button id="nav-reports" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full"></button>
+      <button id="nav-inventory" class="tab-button active px-6 py-2 mx-1 text-sm font-bold rounded-full">Inventory</button>
+      <button id="nav-shopping" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full">Shopping</button>
+      <button id="nav-planner" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full">Planner</button>
+      <button id="nav-reports" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full">Reports</button>
     </nav>
 
-    <main id="content-area">
-      <div class="flex flex-col justify-center items-center h-48 card">
-        <div class="loader mb-4" style="width: 40px; height: 40px;"></div>
-        <p id="loading-message" class="text-lg text-gray-400 italic font-medium">Loading...</p>
-      </div>
-    </main>
+    <main id="content-area"></main>
   </div>
 
   <div id="modal-container" class="fixed inset-0 bg-gray-900/75 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-      <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800"></h3>
+      <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800">Add Item</h3>
 
       <form id="item-form" class="space-y-4">
         <input type="hidden" id="item-id">
         <input type="hidden" id="list-type">
 
         <div>
-          <label id="lbl-name" class="block text-sm font-bold text-gray-700 mb-1"></label>
+          <label id="lbl-name" class="block text-sm font-bold text-gray-700 mb-1">Name</label>
           <input type="text" id="item-name" required class="w-full rounded-xl border-gray-200 p-3 border focus:ring-2 focus:ring-emerald-500 outline-none">
         </div>
 
         <div class="flex space-x-4">
           <div class="flex-1">
-            <label id="lbl-qty" class="block text-sm font-bold text-gray-700 mb-1"></label>
+            <label id="lbl-qty" class="block text-sm font-bold text-gray-700 mb-1">Quantity</label>
             <input type="number" id="item-quantity" required min="1" value="1" class="w-full rounded-xl border-gray-200 p-3 border outline-none">
           </div>
           <div class="flex-1">
-            <label id="lbl-unit" class="block text-sm font-bold text-gray-700 mb-1"></label>
-            <input type="text" id="item-unit" class="w-full rounded-xl border-gray-200 p-3 border outline-none">
+            <label id="lbl-unit" class="block text-sm font-bold text-gray-700 mb-1">Unit</label>
+            <input type="text" id="item-unit" class="w-full rounded-xl border-gray-200 p-3 border outline-none" placeholder="kg, pcs...">
           </div>
         </div>
 
         <div>
           <label id="lbl-price" class="text-sm font-bold text-gray-700 block mb-1">Total price (€)</label>
-          <input id="inp-price" type="number" step="0.01" min="0" class="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" placeholder="e.g. 2.99">
-          <p class="text-[10px] text-gray-400 mt-1">Tip: enter the total price for this item (not per unit).</p>
+          <input id="inp-price" type="number" step="0.01" min="0" class="w-full p-3 border border-gray-200 rounded-xl outline-none" placeholder="0.00">
         </div>
 
-        <div id="expiry-field" class="hidden pt-4 border-t border-dashed">
-          <label id="lbl-expiry" class="block text-xs font-black text-emerald-600 uppercase mb-2"></label>
-          <input type="number" id="item-shelf-life" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border outline-none">
+        <div id="expiry-field" class="pt-4 border-t border-dashed">
+          <label id="lbl-expiry" class="block text-xs font-black text-emerald-600 uppercase mb-2">Shelf Life (Days)</label>
+          <input type="number" id="item-shelf-life" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border outline-none" placeholder="e.g. 7">
         </div>
 
         <div class="flex justify-end space-x-3 pt-6">
-          <button type="button" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
-          <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-colors">Save</button>
+          <button type="button" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl">Cancel</button>
+          <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl shadow-lg">Save</button>
         </div>
       </form>
     </div>
   </div>
 
-  <script type="module" src="./js/app.js" defer></script>
+  <script>
+    // --- APP DATA ---
+    const translations = {
+      en: { nav_inv: "Inventory", nav_shop: "Shopping", nav_plan: "Planner", nav_rep: "Reports", budget: "Budget", spent: "Spent", add: "Add Item" },
+      de: { nav_inv: "Bestand", nav_shop: "Einkauf", nav_plan: "Planer", nav_rep: "Berichte", budget: "Budget", spent: "Ausgegeben", add: "Hinzufügen" },
+      it: { nav_inv: "Dispensa", nav_shop: "Spesa", nav_plan: "Menu", nav_rep: "Report", budget: "Budget", spent: "Spesa", add: "Aggiungi" }
+    };
+
+    let state = {
+      activeTab: 'inventory',
+      lang: 'en',
+      inventory: JSON.parse(localStorage.getItem('bb_inv') || '[]'),
+      shopping: JSON.parse(localStorage.getItem('bb_shop') || '[]'),
+      monthlyBudget: parseFloat(localStorage.getItem('bb_budget') || '200'),
+      currentSpent: parseFloat(localStorage.getItem('bb_spent') || '0')
+    };
+
+    // --- RENDER ENGINE ---
+    function draw() {
+      const root = document.getElementById('content-area');
+      const t = translations[state.lang];
+      
+      // Update Nav Labels
+      document.getElementById('nav-inventory').innerText = t.nav_inv;
+      document.getElementById('nav-shopping').innerText = t.nav_shop;
+      document.getElementById('nav-planner').innerText = t.nav_plan;
+      document.getElementById('nav-reports').innerText = t.nav_rep;
+
+      // Render Dashboard Widget (The "Budget Thing")
+      const budgetPct = Math.min(100, (state.currentSpent / state.monthlyBudget) * 100);
+      const budgetWidget = `
+        <div class="card mb-6 bg-slate-50 border border-slate-100">
+          <div class="flex justify-between items-end mb-2">
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${t.budget}</p>
+              <p class="text-2xl font-black text-slate-800">€${state.monthlyBudget}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">${t.spent}</p>
+              <p class="text-xl font-bold text-slate-700">€${state.currentSpent.toFixed(2)}</p>
+            </div>
+          </div>
+          <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+            <div class="bg-emerald-500 h-full transition-all duration-500" style="width: ${budgetPct}%"></div>
+          </div>
+        </div>
+      `;
+
+      if (state.activeTab === 'inventory') {
+        root.innerHTML = `
+          <div class="card">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-2xl font-black text-gray-800">${t.nav_inv}</h2>
+              <button onclick="openModal('inventory')" class="bg-emerald-500 text-white px-5 py-2 rounded-xl font-bold shadow-lg">+ ${t.add}</button>
+            </div>
+            <div class="space-y-3">${renderItems(state.inventory, 'inventory')}</div>
+          </div>
+        `;
+      } else if (state.activeTab === 'shopping') {
+        root.innerHTML = budgetWidget + `
+          <div class="card">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-2xl font-black text-gray-800">${t.nav_shop}</h2>
+              <button onclick="openModal('shopping')" class="bg-emerald-500 text-white px-5 py-2 rounded-xl font-bold shadow-lg">+ ${t.add}</button>
+            </div>
+            <div class="space-y-3">${renderItems(state.shopping, 'shopping')}</div>
+          </div>
+        `;
+      } else {
+        root.innerHTML = `<div class="card text-center py-20 text-gray-400 italic">Feature coming soon in full mode...</div>`;
+      }
+    }
+
+    function renderItems(list, type) {
+      if (list.length === 0) return `<p class="text-center py-10 text-gray-300">No items found.</p>`;
+      return list.map((item, idx) => `
+        <div class="flex justify-between items-center p-4 border border-gray-100 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow">
+          <div>
+            <p class="font-bold text-gray-800">${item.name}</p>
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-tight">
+              ${item.qty} ${item.unit} • ${item.price > 0 ? '€'+item.price : 'No Price'} • Exp: ${item.expiry}
+            </p>
+          </div>
+          <div class="flex gap-2">
+            ${type === 'shopping' ? `<button onclick="buyItem(${idx})" class="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg font-black text-[10px] uppercase">Bought</button>` : ''}
+            <button onclick="deleteItem('${type}', ${idx})" class="text-gray-300 hover:text-red-500">✕</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // --- LOGIC ---
+    window.openModal = (type) => {
+      document.getElementById('list-type').value = type;
+      document.getElementById('modal-container').classList.replace('hidden', 'flex');
+    };
+
+    window.closeModal = () => document.getElementById('modal-container').classList.replace('flex', 'hidden');
+
+    document.getElementById('btn-cancel').onclick = closeModal;
+
+    document.getElementById('item-form').onsubmit = (e) => {
+      e.preventDefault();
+      const type = document.getElementById('list-type').value;
+      const shelfLife = parseInt(document.getElementById('item-shelf-life').value) || 0;
+      let expStr = "N/A";
+      if (shelfLife > 0) {
+        const d = new Date(); d.setDate(d.getDate() + shelfLife);
+        expStr = d.toISOString().split('T')[0];
+      }
+
+      const item = {
+        name: document.getElementById('item-name').value,
+        qty: document.getElementById('item-quantity').value,
+        unit: document.getElementById('item-unit').value,
+        price: parseFloat(document.getElementById('inp-price').value) || 0,
+        expiry: expStr
+      };
+
+      if (type === 'inventory') state.inventory.push(item);
+      else state.shopping.push(item);
+      
+      save();
+      closeModal();
+      draw();
+      document.getElementById('item-form').reset();
+    };
+
+    window.buyItem = (idx) => {
+      const item = state.shopping.splice(idx, 1)[0];
+      state.currentSpent += item.price;
+      state.inventory.push(item);
+      save(); draw();
+    };
+
+    window.deleteItem = (type, idx) => {
+      state[type].splice(idx, 1);
+      save(); draw();
+    };
+
+    function save() {
+      localStorage.setItem('bb_inv', JSON.stringify(state.inventory));
+      localStorage.setItem('bb_shop', JSON.stringify(state.shopping));
+      localStorage.setItem('bb_spent', state.currentSpent);
+      localStorage.setItem('bb_budget', state.monthlyBudget);
+    }
+
+    // --- NAVIGATION ---
+    const navs = ['inventory', 'shopping', 'planner', 'reports'];
+    navs.forEach(n => {
+      document.getElementById('nav-' + n).onclick = () => {
+        state.activeTab = n;
+        navs.forEach(id => document.getElementById('nav-' + id).classList.remove('active'));
+        document.getElementById('nav-' + n).classList.add('active');
+        draw();
+      };
+    });
+
+    document.getElementById('lang-select').onchange = (e) => {
+      state.lang = e.target.value;
+      draw();
+    };
+
+    draw(); // Initial load
+  </script>
 </body>
 </html>
