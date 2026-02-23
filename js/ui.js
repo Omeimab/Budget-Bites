@@ -49,30 +49,62 @@ export function renderUI({
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-2xl font-bold text-gray-800">${t.nav_inv}</h2>
           <div class="flex gap-2">
-            <button id="btn-clear-inv" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full text-xs font-bold uppercase">Clear</button>
-            <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">+ ${t.add}</button>
+            <button id="btn-clear-inv" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full text-xs font-bold uppercase">
+              ${t.clear_all || "Clear"}
+            </button>
+            <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">
+              + ${t.add}
+            </button>
           </div>
         </div>
+
         <div class="space-y-3">
           ${inventory.map(i => `
-            <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm">
-              <div class="max-w-[60%]">
+            <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-100 transition-all">
+              <div class="max-w-[55%]">
                 <p class="font-bold text-gray-800 truncate">${escapeHtml(i.name)}</p>
                 <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
-                  ${i.quantity} ${escapeHtml(i.unit || "")} • ${i.expiry || "No Date"}
+                  ${i.quantity} ${escapeHtml(i.unit || "")} • ${i.expiry || "PENDING"}
                 </p>
               </div>
-              <div class="flex gap-2">
-                <button data-move="${i.id}" class="bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter">Refill</button>
-                <button data-empty="${i.id}" class="bg-rose-50 text-rose-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter">Empty</button>
-                <button data-del="${i.id}" class="text-slate-300 px-2 font-black">✕</button>
+              <div class="flex gap-2 items-center">
+                <button data-move="${i.id}" class="bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter">
+                  ${t.move_need || "Refill"}
+                </button>
+                
+                <button data-empty="${i.id}" class="bg-rose-50 text-rose-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter">
+                  ${t.empty_action || "Empty"}
+                </button>
+
+                <button data-del="${i.id}" class="text-slate-300 hover:text-rose-500 px-2 font-black transition-colors">✕</button>
               </div>
             </div>
-          `).join("") || `<p class="text-center italic text-gray-400 py-10">${t.empty_inv}</p>`}
+          `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`}
         </div>
       </div>
     `;
 
+    // RE-ATTACH LISTENERS (This part must follow the innerHTML)
+    document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
+    document.getElementById("btn-clear-inv").onclick = onClearAllInventory;
+    
+    root.querySelectorAll("[data-move]").forEach(btn => {
+      btn.onclick = () => onMove(btn.dataset.move, "inventory");
+    });
+    
+    root.querySelectorAll("[data-empty]").forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopImmediatePropagation(); // Prevents the double-popup glitch
+        onEmpty(btn.dataset.empty);
+      };
+    });
+    
+    root.querySelectorAll("[data-del]").forEach(btn => {
+      btn.onclick = () => onDelete("inventory", btn.dataset.del);
+    });
+    
+    return;
+  }
     // Attach Listeners
     document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
     document.getElementById("btn-clear-inv").onclick = onClearAllInventory;
