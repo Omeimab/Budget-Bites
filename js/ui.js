@@ -573,4 +573,5 @@ function donutSvg(map) {
       <text x="${cx}" y="${cy+14}" text-anchor="middle" dominant-baseline="middle" font-size="16" fill="#111827" font-weight="900">€${total.toFixed(0)}</text>
     </svg>
   `;
+  //hello
 }
