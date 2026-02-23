@@ -1,151 +1,306 @@
-export function setHeaderText(t) {
-  document.getElementById("app-subtitle").innerText = t.subtitle || "";
-  document.getElementById("user-info").innerText = t.connecting || "";
-  document.getElementById("loading-message").innerText = t.loading || "";
+import { translations, detectDefaultLang, setLang } from "./i18n.js";
+import { initFirebase, signInAndSync, saveData } from "./firebase.js";
+import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
+import { getSmartRecipe, getSmartSuggestions } from "./ai_mock.js";
 
-  document.getElementById("nav-inventory").innerText = t.nav_inv;
-  document.getElementById("nav-shopping").innerText = t.nav_shop;
-  document.getElementById("nav-planner").innerText = t.nav_plan;
-  document.getElementById("nav-reports").innerText = t.nav_rep || t.nav_dash;
-}
+let activeTab = "inventory";
+let userId = null;
 
-export function setOnlineState(t) {
-  document.getElementById("user-info").textContent = t.active;
-  document.getElementById("sync-spinner").style.display = "none";
-}
+let inventory = [];
+let shoppingList = [];
+let historicalWaste = 0;
 
-export function setActiveTab(activeTab) {
-  document.getElementById("nav-inventory").classList.toggle("active", activeTab === "inventory");
-  document.getElementById("nav-shopping").classList.toggle("active", activeTab === "shopping");
-  document.getElementById("nav-planner").classList.toggle("active", activeTab === "planner");
-  document.getElementById("nav-reports").classList.toggle("active", activeTab === "reports");
-}
+let monthlyBudget = 0;
+let monthSpent = 0;
 
-export function openModal(t, type, item) {
-  const form = document.getElementById("item-form");
-  form.reset();
+let lang = detectDefaultLang();
+let t = translations[lang];
 
-  document.getElementById("list-type").value = type;
-  document.getElementById("item-id").value = item ? item.id : "";
+const { db, auth } = initFirebase();
 
-  // Map to your HTML IDs
-  document.getElementById("modal-title").innerText = item ? t.edit : t.add;
-  document.getElementById("lbl-name").innerText = t.name;
-  document.getElementById("lbl-qty").innerText = t.qty;
-  document.getElementById("lbl-unit").innerText = t.unit;
-  document.getElementById("lbl-price").innerText = t.lbl_price || "Price";
-  document.getElementById("lbl-category").innerText = t.lbl_category || "Category";
-  document.getElementById("lbl-expiry-date").innerText = t.lbl_expiry_date || t.expiry_logic;
+// ---------- init UI ----------
+setHeaderText(t);
+setupLanguageDropdown();
 
-  // Option labels
-  document.getElementById("opt-none").innerText = t.opt_none || "—";
-  document.getElementById("opt-dairy").innerText = t.opt_dairy || "Dairy";
-  document.getElementById("opt-dry").innerText = t.opt_dry || "Dry";
-  document.getElementById("opt-meat").innerText = t.opt_meat || "Meat";
-  document.getElementById("opt-produce").innerText = t.opt_produce || "Produce";
-  document.getElementById("opt-frozen").innerText = t.opt_frozen || "Frozen";
-  document.getElementById("opt-drinks").innerText = t.opt_drinks || "Drinks";
-  document.getElementById("opt-snacks").innerText = t.opt_snacks || "Snacks";
-  document.getElementById("opt-other").innerText = t.opt_other || "Other";
+document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
+document.getElementById("nav-shopping").onclick = () => switchTab("shopping");
+document.getElementById("nav-planner").onclick = () => switchTab("planner");
+document.getElementById("nav-reports").onclick = () => switchTab("reports");
 
-  // Values
-  document.getElementById("item-name").value = item?.name ?? "";
-  document.getElementById("item-quantity").value = item?.quantity ?? 1;
-  document.getElementById("item-unit").value = item?.unit ?? "";
-  document.getElementById("inp-price").value = item?.price ?? "";
-  document.getElementById("inp-category").value = item?.category ?? "";
-  document.getElementById("item-expiry-date").value = item?.expiry ?? "";
+document.getElementById("btn-cancel").onclick = closeModal;
 
-  document.getElementById("btn-save").innerText = t.save;
-  document.getElementById("btn-cancel").innerText = t.cancel;
+// ---------- modal submit ----------
+document.getElementById("item-form").onsubmit = async (e) => {
+  e.preventDefault();
 
-  // Show/Hide expiry container based on tab
-  const expiryContainer = document.getElementById("expiry-date-container");
-  if (expiryContainer) {
-    expiryContainer.classList.toggle("hidden", type !== "inventory");
+  const type = document.getElementById("list-type").value;
+  const id = document.getElementById("item-id").value || crypto.randomUUID();
+
+  const name = document.getElementById("item-name").value.trim();
+  const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
+  const unit = document.getElementById("item-unit").value.trim();
+
+  // total price (not per unit)
+  const price = parseFloat(document.getElementById("inp-price")?.value || "0");
+
+  // category (optional)
+  const category = (document.getElementById("inp-category")?.value || "").trim();
+
+  if (!name) return;
+
+  if (type === "inventory") {
+    const days = parseInt(document.getElementById("item-shelf-life").value || "", 10);
+    let expiry = "";
+
+    if (Number.isFinite(days) && days > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      expiry = d.toISOString().split("T")[0];
+    }
+
+    upsert(inventory, {
+      id,
+      name,
+      quantity: Number.isFinite(quantity) ? quantity : 1,
+      unit,
+      expiry,
+      price: Number.isFinite(price) ? price : 0,
+      category
+    });
+  } else {
+    upsert(shoppingList, {
+      id,
+      name,
+      quantity: Number.isFinite(quantity) ? quantity : 1,
+      unit,
+      price: Number.isFinite(price) ? price : 0,
+      category
+    });
   }
 
-  // Show the modal
-  document.getElementById("modal-container").classList.replace("hidden", "flex");
+  await persist();
+  closeModal();
+  draw();
+};
+
+function upsert(arr, item) {
+  const idx = arr.findIndex((x) => x.id === item.id);
+  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
+  else arr.push(item);
 }
 
-export function closeModal() {
-  document.getElementById("modal-container").classList.replace("flex", "hidden");
+function switchTab(tab) {
+  activeTab = tab;
+  draw();
 }
 
-// --- Helper for the list view ---
-function formatMoney(v) {
-  return `€${Number(v || 0).toFixed(2)}`;
+function draw() {
+  renderUI({
+    t,
+    lang,
+    activeTab,
+    inventory,
+    shoppingList,
+    historicalWaste,
+    monthlyBudget,
+    monthSpent,
+
+    onAdd: (type) => openModal(t, type, null),
+
+    onMove: moveItem,
+    onDelete: deleteItem,
+
+    // NEW
+    onDeleteShopping: deleteShoppingItem,
+    onClearInventory: clearInventory,
+    onClearShopping: clearShopping,
+    onResetAll: resetAll,
+
+    onSuggest: showSuggestions,
+    onRecipe: showRecipe,
+
+    onSaveBudget: saveBudget,
+    onResetSpent: resetSpent
+  });
 }
 
-export function renderUI(state) {
-  const { t, activeTab, inventory, shoppingList, historicalWaste, monthlyBudget, monthSpent, onAdd, onMove, onDelete, onClearInventory, onClearShopping, onResetAll, onSuggest, onRecipe, onSaveBudget, onResetSpent } = state;
-  const root = document.getElementById("content-area");
-  setActiveTab(activeTab);
+// auto-waste processing (expired items)
+function processWaste() {
+  const now = new Date();
+  const before = inventory.length;
 
-  const spent = Number(monthSpent || 0);
-  const budget = Number(monthlyBudget || 0);
+  inventory = inventory.filter((i) => {
+    if (i.expiry && i.expiry !== "PENDING" && new Date(i.expiry) < now) {
+      historicalWaste++;
+      return false;
+    }
+    return true;
+  });
 
-  // --- INVENTORY VIEW ---
-  if (activeTab === "inventory") {
-    root.innerHTML = `
-      <div class="card">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-extrabold text-gray-800">${t.nav_inv}</h2>
-          <div class="flex gap-2">
-            <button id="btn-clear-inv" class="text-xs font-bold text-red-400 uppercase mr-2">${t.btn_clear || "Clear"}</button>
-            <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-lg">+ ${t.add}</button>
-          </div>
-        </div>
-        <div class="space-y-3">
-          ${inventory.map(i => `
-            <div class="flex justify-between p-4 border rounded-2xl items-center bg-white hover:border-emerald-200 transition-all">
-              <div>
-                <p class="font-bold text-gray-800">${i.name}</p>
-                <p class="text-[10px] font-bold text-gray-400 uppercase">${i.quantity} ${i.unit || ""} • ${i.expiry || "—"}</p>
-              </div>
-              <div class="flex gap-4">
-                <button data-move="${i.id}" class="text-[10px] font-black text-amber-500 uppercase">${t.move_need}</button>
-                <button data-del="${i.id}" class="text-gray-300 hover:text-red-500">✕</button>
-              </div>
-            </div>
-          `).join("") || `<p class="text-center py-10 text-gray-300 italic">${t.empty_inv}</p>`}
-        </div>
-      </div>
-    `;
-    document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
-    document.getElementById("btn-clear-inv").onclick = () => onClearInventory();
-    root.querySelectorAll("[data-move]").forEach(b => b.onclick = () => onMove(b.dataset.move, "inventory"));
-    root.querySelectorAll("[data-del]").forEach(b => b.onclick = () => onDelete("inventory", b.dataset.del));
-  } 
+  if (inventory.length !== before) persist();
+}
 
-  // --- SHOPPING VIEW ---
-  else if (activeTab === "shopping") {
-    root.innerHTML = `
-      <div class="card">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-extrabold text-gray-800">${t.nav_shop}</h2>
-          <button id="btn-add-shop" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-lg">+ ${t.add}</button>
-        </div>
-        <div class="space-y-3">
-          ${shoppingList.map(i => `
-            <div class="flex justify-between p-4 border rounded-2xl bg-white items-center">
-              <div>
-                <p class="font-bold text-gray-800">${i.name}</p>
-                <p class="text-[10px] text-gray-400 font-bold uppercase">${i.quantity} ${i.unit || ""} ${i.price ? `• ${formatMoney(i.price)}` : ""}</p>
-              </div>
-              <button data-move-shop="${i.id}" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest">${t.move_bought || "Bought"}</button>
-            </div>
-          `).join("") || `<p class="text-center py-10 text-gray-300 italic">${t.empty_shop}</p>`}
-        </div>
-      </div>
-    `;
-    document.getElementById("btn-add-shop").onclick = () => onAdd("shopping");
-    root.querySelectorAll("[data-move-shop]").forEach(b => b.onclick = () => onMove(b.dataset.moveShop, "shopping"));
+async function persist() {
+  await saveData({
+    db,
+    userId,
+    inventory,
+    shoppingList,
+    historicalWaste,
+    monthlyBudget,
+    monthSpent
+  });
+}
+
+// ---------- budget ----------
+async function saveBudget(val) {
+  const n = Number(val || 0);
+  monthlyBudget = Number.isFinite(n) && n >= 0 ? n : 0;
+  await persist();
+  draw({ toast: "budget_saved" });
+}
+
+async function resetSpent() {
+  if (!confirm("Reset monthly spending to €0.00?")) return;
+  monthSpent = 0;
+  await persist();
+  draw({ toast: "spent_reset" });
+}
+
+// ---------- workflows ----------
+async function moveItem(id, from) {
+  // shopping → inventory (bought)
+  if (from === "shopping") {
+    const i = shoppingList.find((x) => x.id === id);
+    if (!i) return;
+
+    shoppingList = shoppingList.filter((x) => x.id !== id);
+
+    // moved item into inventory with expiry pending
+    inventory.push({ ...i, expiry: "PENDING" });
+
+    // spending add = total price * quantity
+    const price = Number(i.price || 0);
+    const qty = Number(i.quantity || 1);
+    const cost = (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
+
+    monthSpent = Number(monthSpent || 0) + cost;
+
+    await persist();
+    draw();
+    return;
   }
 
-  // --- OTHERS (Planner/Reports) ---
-  else {
-    root.innerHTML = `<div class="card text-center py-20"><p class="text-gray-400 font-bold uppercase tracking-widest text-xs">${t.nav_plan || "Coming Soon"}</p></div>`;
+  // inventory → shopping (need again)
+  const i = inventory.find((x) => x.id === id);
+  if (!i) return;
+
+  inventory = inventory.filter((x) => x.id !== id);
+  shoppingList.push({
+    id: i.id,
+    name: i.name,
+    quantity: i.quantity,
+    unit: i.unit,
+    price: Number(i.price || 0),
+    category: i.category || ""
+  });
+
+  await persist();
+  draw();
+}
+
+// Inventory delete (with confirm)
+async function deleteItem(type, id) {
+  if (!confirm(t.delete_confirm || "Delete this item?")) return;
+
+  if (type === "inventory") inventory = inventory.filter((i) => i.id !== id);
+  else shoppingList = shoppingList.filter((i) => i.id !== id);
+
+  await persist();
+  draw();
+}
+
+// Shopping delete single item (NO “Bought” needed)
+async function deleteShoppingItem(id) {
+  if (!confirm("Remove this item from the shopping list?")) return;
+  shoppingList = shoppingList.filter((x) => x.id !== id);
+  await persist();
+  draw();
+}
+
+// Clear all inventory
+async function clearInventory() {
+  if (!confirm("Are you sure you want to clear ALL inventory items?")) return;
+  inventory = [];
+  await persist();
+  draw();
+}
+
+// Clear all shopping list
+async function clearShopping() {
+  if (!confirm("Are you sure you want to clear ALL shopping list items?")) return;
+  shoppingList = [];
+  await persist();
+  draw();
+}
+
+// Reset everything
+async function resetAll() {
+  if (!confirm("Reset EVERYTHING (inventory, shopping list, budget spent, waste)?")) return;
+  inventory = [];
+  shoppingList = [];
+  historicalWaste = 0;
+  monthlyBudget = 0;
+  monthSpent = 0;
+  await persist();
+  draw();
+}
+
+// ---------- AI mock ----------
+function showSuggestions() {
+  const out = document.getElementById("ai-out");
+  const names = shoppingList.map((i) => i.name);
+  out.innerText = getSmartSuggestions(lang, names);
+}
+
+function showRecipe() {
+  const out = document.getElementById("ai-recipe-out");
+  const names = inventory.map((i) => i.name);
+  out.innerText = getSmartRecipe(lang, names);
+}
+
+// ---------- auth + sync ----------
+signInAndSync({
+  db,
+  auth,
+  onReady: (uid) => {
+    userId = uid;
+    setOnlineState(t);
+  },
+  onData: (d) => {
+    inventory = d.inventory || [];
+    shoppingList = d.shoppingList || [];
+    historicalWaste = Number(d.historicalWaste || 0);
+
+    monthlyBudget = Number(d.monthlyBudget || 0);
+    monthSpent = Number(d.monthSpent || 0);
+
+    processWaste();
+    draw();
   }
+});
+
+// ---------- language ----------
+function setupLanguageDropdown() {
+  const sel = document.getElementById("lang-select");
+  sel.value = lang;
+
+  sel.onchange = () => {
+    lang = sel.value;
+    setLang(lang);
+    t = translations[lang];
+    setHeaderText(t);
+    setOnlineState(t);
+    draw();
+  };
 }
