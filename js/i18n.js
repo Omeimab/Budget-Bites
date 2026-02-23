@@ -7,7 +7,7 @@ export const I18N = {
     dashboard: "Dashboard",
 
     initializing: "Initializing…",
-    ready: "READY • AUTOSAVED LOCALLY",
+    ready: "READY • SAVED IN CLOUD",
 
     addInventory: "Add inventory item",
     addShopping: "Add shopping item",
@@ -27,11 +27,15 @@ export const I18N = {
     totalPrice: "Total price (€)",
     priceHint: "Tip: enter the total price for this item (not per unit).",
     shelfLife: "Expiry in days",
-    expiryHint: "Used to calculate expiry in inventory after you buy it.",
+    expiryHint: "Used to calculate expiry after you buy it.",
     cancel: "Cancel",
     save: "Save",
     edit: "Edit",
     delete: "Delete",
+    clearAll: "Clear all",
+    remove: "Remove",
+    bought: "BOUGHT",
+    empty: "EMPTY",
 
     plannedSpend: "Planned spend",
     tripBudget: "Shopping trip budget (€)",
@@ -39,23 +43,25 @@ export const I18N = {
     setTripBudget: "Set trip budget (€)",
     resetTripBudget: "Reset trip budget",
     remaining: "Remaining",
-    reset: "Reset",
 
     budgetOk: "All good ✅",
     budgetWarn: "Watch out — near your limit ⚠️",
     budgetOver: "Over budget ❌",
 
-    price: "Price",
     expiryIn: "Expiry in",
     days: "days",
+    total: "Total",
+    noPrice: "No price yet",
 
     generateRecipes: "Generate recipes",
-    plannerHint: "Click the button to generate simple recipe ideas based on your inventory.",
-    recipePlaceholder: "Recipe details can be added next.",
+    plannerHint: "Click to generate simple recipe ideas based on your inventory.",
+    recipePlaceholder: "Recipe details will appear here.",
 
     monthlyBudget: "Monthly budget (€)",
     setMonthlyBudget: "Set monthly budget (€)",
     spentThisMonth: "Spent this month",
+    resetMonthly: "Reset monthly spending",
+    resetAll: "Reset ALL data",
     monthTip: "Tip: add total prices and click BOUGHT to track spending automatically.",
 
     expired: "Expired",
@@ -65,7 +71,7 @@ export const I18N = {
     noExpired: "Nothing urgent 🎉",
 
     inventoryBlockTitle: "Inventory",
-    inventoryBlockHint: "All items currently in your inventory (including bought items from shopping).",
+    inventoryBlockHint: "All items currently in your inventory.",
 
     categoryCircleTitle: "By category",
     categoryCircleHint: "This month (from bought items)",
@@ -80,7 +86,7 @@ export const I18N = {
     dashboard: "Dashboard",
 
     initializing: "Initialisiere…",
-    ready: "BEREIT • LOKAL GESPEICHERT",
+    ready: "BEREIT • IN DER CLOUD GESPEICHERT",
 
     addInventory: "Vorratsartikel hinzufügen",
     addShopping: "Einkaufsartikel hinzufügen",
@@ -105,6 +111,10 @@ export const I18N = {
     save: "Speichern",
     edit: "Bearbeiten",
     delete: "Löschen",
+    clearAll: "Alles löschen",
+    remove: "Entfernen",
+    bought: "GEKAUFT",
+    empty: "LEER",
 
     plannedSpend: "Geplante Ausgaben",
     tripBudget: "Einkaufsbudget (€)",
@@ -112,24 +122,26 @@ export const I18N = {
     setTripBudget: "Einkaufsbudget festlegen (€)",
     resetTripBudget: "Einkaufsbudget zurücksetzen",
     remaining: "Übrig",
-    reset: "Zurücksetzen",
 
     budgetOk: "Alles gut ✅",
     budgetWarn: "Achtung — fast am Limit ⚠️",
     budgetOver: "Budget überschritten ❌",
 
-    price: "Preis",
     expiryIn: "Haltbar in",
     days: "Tage",
+    total: "Gesamt",
+    noPrice: "Noch kein Preis",
 
     generateRecipes: "Rezepte generieren",
     plannerHint: "Klick, um einfache Rezeptideen aus deinem Vorrat zu bekommen.",
-    recipePlaceholder: "Rezept-Details können als Nächstes ergänzt werden.",
+    recipePlaceholder: "Rezept-Details erscheinen hier.",
 
     monthlyBudget: "Monatsbudget (€)",
     setMonthlyBudget: "Monatsbudget festlegen (€)",
     spentThisMonth: "Ausgaben diesen Monat",
-    monthTip: "Tipp: Gesamtpreise hinzufügen und BOUGHT klicken, um Ausgaben zu tracken.",
+    resetMonthly: "Monatsausgaben zurücksetzen",
+    resetAll: "ALLES zurücksetzen",
+    monthTip: "Tipp: Gesamtpreise hinzufügen und GEKAUFT klicken, um Ausgaben zu tracken.",
 
     expired: "Abgelaufen",
     daysLeft: "Tage übrig",
@@ -138,7 +150,7 @@ export const I18N = {
     noExpired: "Nichts dringend 🎉",
 
     inventoryBlockTitle: "Vorrat",
-    inventoryBlockHint: "Alle Artikel im Vorrat (inkl. aus Einkaufsliste gekauft).",
+    inventoryBlockHint: "Alle Artikel aktuell im Vorrat.",
 
     categoryCircleTitle: "Nach Kategorie",
     categoryCircleHint: "Diesen Monat (aus gekauften Artikeln)",
@@ -153,7 +165,7 @@ export const I18N = {
     dashboard: "Dashboard",
 
     initializing: "Inizializzazione…",
-    ready: "PRONTO • SALVATO IN LOCALE",
+    ready: "PRONTO • SALVATO NEL CLOUD",
 
     addInventory: "Aggiungi in dispensa",
     addShopping: "Aggiungi in lista spesa",
@@ -178,6 +190,10 @@ export const I18N = {
     save: "Salva",
     edit: "Modifica",
     delete: "Elimina",
+    clearAll: "Svuota tutto",
+    remove: "Rimuovi",
+    bought: "COMPRATO",
+    empty: "FINITO",
 
     plannedSpend: "Spesa prevista",
     tripBudget: "Budget spesa (€)",
@@ -185,24 +201,26 @@ export const I18N = {
     setTripBudget: "Imposta budget spesa (€)",
     resetTripBudget: "Reset budget spesa",
     remaining: "Rimanente",
-    reset: "Reset",
 
     budgetOk: "Tutto ok ✅",
     budgetWarn: "Attenzione — quasi al limite ⚠️",
     budgetOver: "Budget superato ❌",
 
-    price: "Prezzo",
     expiryIn: "Scade tra",
     days: "giorni",
+    total: "Totale",
+    noPrice: "Prezzo mancante",
 
     generateRecipes: "Genera ricette",
     plannerHint: "Clicca per idee ricette basate sulla dispensa.",
-    recipePlaceholder: "Dettagli ricetta da aggiungere dopo.",
+    recipePlaceholder: "I dettagli della ricetta appariranno qui.",
 
     monthlyBudget: "Budget mensile (€)",
     setMonthlyBudget: "Imposta budget mensile (€)",
     spentThisMonth: "Speso questo mese",
-    monthTip: "Tip: aggiungi i prezzi totali e clicca BOUGHT per tracciare la spesa.",
+    resetMonthly: "Reset spesa mensile",
+    resetAll: "Reset totale",
+    monthTip: "Tip: aggiungi i prezzi totali e clicca COMPRATO per tracciare la spesa.",
 
     expired: "Scaduto",
     daysLeft: "giorni rimasti",
@@ -211,7 +229,7 @@ export const I18N = {
     noExpired: "Niente di urgente 🎉",
 
     inventoryBlockTitle: "Dispensa",
-    inventoryBlockHint: "Tutti gli elementi in dispensa (inclusi quelli comprati dalla lista spesa).",
+    inventoryBlockHint: "Tutti gli elementi attualmente in dispensa.",
 
     categoryCircleTitle: "Per categoria",
     categoryCircleHint: "Questo mese (da articoli comprati)",
@@ -221,4 +239,15 @@ export const I18N = {
 
 export function t(lang, key) {
   return (I18N[lang] && I18N[lang][key]) ? I18N[lang][key] : (I18N.en[key] || key);
+}
+
+export function detectDefaultLang() {
+  const saved = localStorage.getItem("bb_lang");
+  if (saved && I18N[saved]) return saved;
+  const nav = (navigator.language || "en").slice(0, 2);
+  return I18N[nav] ? nav : "en";
+}
+
+export function setLang(lang) {
+  if (I18N[lang]) localStorage.setItem("bb_lang", lang);
 }
