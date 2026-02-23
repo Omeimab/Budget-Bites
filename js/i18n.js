@@ -32,6 +32,7 @@ export const I18N = {
     save: "Save",
     edit: "Edit",
     delete: "Delete",
+
     clearAll: "Clear all",
     remove: "Remove",
     bought: "BOUGHT",
@@ -111,6 +112,7 @@ export const I18N = {
     save: "Speichern",
     edit: "Bearbeiten",
     delete: "Löschen",
+
     clearAll: "Alles löschen",
     remove: "Entfernen",
     bought: "GEKAUFT",
@@ -190,6 +192,7 @@ export const I18N = {
     save: "Salva",
     edit: "Modifica",
     delete: "Elimina",
+
     clearAll: "Svuota tutto",
     remove: "Rimuovi",
     bought: "COMPRATO",
@@ -237,17 +240,18 @@ export const I18N = {
   }
 };
 
-export function t(lang, key) {
-  return (I18N[lang] && I18N[lang][key]) ? I18N[lang][key] : (I18N.en[key] || key);
-}
-
 export function detectDefaultLang() {
   const saved = localStorage.getItem("bb_lang");
   if (saved && I18N[saved]) return saved;
+
   const nav = (navigator.language || "en").slice(0, 2);
   return I18N[nav] ? nav : "en";
 }
 
 export function setLang(lang) {
   if (I18N[lang]) localStorage.setItem("bb_lang", lang);
+}
+
+export function t(lang, key) {
+  return (I18N[lang] && I18N[lang][key]) ? I18N[lang][key] : (I18N.en[key] || key);
 }
