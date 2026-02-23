@@ -166,14 +166,18 @@ async function moveItem(id, from) {
 async function emptyItem(id) {
   const i = inventory.find(x => x.id === id);
   if (!i) return;
-  
+
+  // Confirmation popup
   if (!confirm(`Mark "${i.name}" as empty?`)) return;
 
-  // Optimistic UI: remove from local array and draw immediately
+  // 1. Update local data
   inventory = inventory.filter(x => x.id !== id);
   historicalWaste += 1;
+
+  // 2. Re-draw the UI immediately
   draw(); 
-  
+
+  // 3. Save to cloud in background
   await persist();
   showToast("Item removed", "warn");
 }
