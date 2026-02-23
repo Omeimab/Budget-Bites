@@ -1,16 +1,16 @@
 export function setHeaderText(t) {
   document.getElementById("app-subtitle").innerText = t.subtitle;
-  document.getElementById("user-info").innerText = t.connecting;
-  document.getElementById("loading-message").innerText = t.loading;
+  document.getElementById("user-info").innerText = t.initializing;
+  document.getElementById("loading-message").innerText = t.initializing;
 
-  document.getElementById("nav-inventory").innerText = t.nav_inv;
-  document.getElementById("nav-shopping").innerText = t.nav_shop;
-  document.getElementById("nav-planner").innerText = t.nav_plan;
-  document.getElementById("nav-reports").innerText = t.nav_dash; // "Dashboard"
+  document.getElementById("nav-inventory").innerText = t.inventory;
+  document.getElementById("nav-shopping").innerText = t.shopping;
+  document.getElementById("nav-planner").innerText = t.planner;
+  document.getElementById("nav-reports").innerText = t.dashboard;
 }
 
 export function setOnlineState(t) {
-  document.getElementById("user-info").textContent = t.active;
+  document.getElementById("user-info").textContent = t.ready;
   const spinner = document.getElementById("sync-spinner");
   if (spinner) spinner.style.display = "none";
 }
@@ -55,42 +55,40 @@ export function openModal(t, type, item) {
   document.getElementById("list-type").value = type;
   document.getElementById("item-id").value = item ? item.id : "";
 
-  document.getElementById("modal-title").innerText = item ? t.edit : t.add;
+  const title =
+    type === "inventory"
+      ? (item ? t.modalEditInv : t.modalAddInv)
+      : (item ? t.modalEditShop : t.modalAddShop);
+
+  document.getElementById("modal-title").innerText = title;
+
   document.getElementById("lbl-name").innerText = t.name;
-  document.getElementById("lbl-category").innerText = t.category || "Category";
+  document.getElementById("lbl-category").innerText = t.category;
   document.getElementById("lbl-qty").innerText = t.qty;
   document.getElementById("lbl-unit").innerText = t.unit;
-  document.getElementById("lbl-expiry").innerText = t.expiry_logic;
+  document.getElementById("lbl-price").innerText = t.totalPrice;
+  document.getElementById("price-hint").innerText = t.priceHint;
+  document.getElementById("lbl-expiry").innerText = t.shelfLife;
+  document.getElementById("expiry-hint").innerText = t.expiryHint;
 
-  // category
-  const cat = document.getElementById("item-category");
-  if (cat) cat.value = item?.category || "general";
-
-  // price
-  const lblPrice = document.getElementById("lbl-price");
-  if (lblPrice) lblPrice.innerText = t.price_total || "Total Price (€)";
-
-  const inpPrice = document.getElementById("inp-price");
-  if (inpPrice) inpPrice.value = item?.price ?? "";
-
-  // shelf life
-  const shelf = document.getElementById("item-shelf-life");
-  if (shelf) {
-    shelf.placeholder = t.expiry_placeholder;
-    shelf.value = item?.shelfLifeDays ?? "";
-  }
-
-  // fill basic
+  // fill
   document.getElementById("item-name").value = item?.name ?? "";
   document.getElementById("item-quantity").value = item?.quantity ?? 1;
   document.getElementById("item-unit").value = item?.unit ?? "";
 
+  const cat = document.getElementById("item-category");
+  if (cat) cat.value = item?.category || "general";
+
+  const inpPrice = document.getElementById("inp-price");
+  if (inpPrice) inpPrice.value = item?.price ?? "";
+
+  const shelf = document.getElementById("item-shelf-life");
+  if (shelf) shelf.value = item?.shelfLifeDays ?? "";
+
   document.getElementById("btn-save").innerText = t.save;
   document.getElementById("btn-cancel").innerText = t.cancel;
 
-  // IMPORTANT: show expiry for BOTH inventory and shopping (you wanted expiry in shopping too)
   document.getElementById("expiry-field").classList.remove("hidden");
-
   document.getElementById("modal-container").classList.replace("hidden", "flex");
 }
 
@@ -100,7 +98,6 @@ export function closeModal() {
 
 export function renderUI({
   t,
-  lang,
   activeTab,
   inventory,
   shoppingList,
@@ -138,8 +135,8 @@ export function renderUI({
   const budgetWidget = () => `
     <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
       <div class="flex items-center justify-between">
-        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.monthly_budget_title || "Monthly Budget"}</p>
-        <p class="text-sm font-black text-slate-700">${formatMoney(spent)} <span class="text-slate-400 font-semibold">${t.spent || "spent"}</span></p>
+        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.monthlyBudget}</p>
+        <p class="text-sm font-black text-slate-700">${formatMoney(spent)} <span class="text-slate-400 font-semibold">${t.spentThisMonth}</span></p>
       </div>
 
       <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -147,39 +144,32 @@ export function renderUI({
       </div>
 
       <div class="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
-        <span>${pct}% ${t.used || "used"}</span>
+        <span>${pct}%</span>
         <span>
           ${
             budget > 0
               ? (remaining >= 0
-                  ? `${formatMoney(remaining)} ${t.remaining || "remaining"}`
-                  : `${formatMoney(overBy)} ${t.over_budget || "over budget"}`)
-              : (t.set_budget_hint || "Set a budget to track remaining")
+                  ? `${formatMoney(remaining)} ${t.remaining}`
+                  : `${formatMoney(overBy)} ${t.budgetOver}`)
+              : t.setMonthlyBudget
           }
         </span>
       </div>
 
       ${
         budget > 0 && remaining <= budget * 0.1 && remaining >= 0
-          ? `
-        <div class="mt-3 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-          ⚠️ ${t.budget_warn || "Watch out: you're close to your monthly budget."}
-        </div>`
+          ? `<div class="mt-3 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">${t.budgetWarn}</div>`
           : ""
       }
-
       ${
         budget > 0 && remaining < 0
-          ? `
-        <div class="mt-3 text-xs font-black text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-          ❌ ${t.budget_over || "You exceeded your monthly budget."}
-        </div>`
+          ? `<div class="mt-3 text-xs font-black text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">${t.budgetOver}</div>`
           : ""
       }
 
       <div class="mt-4 flex gap-3 items-end">
         <div class="flex-1">
-          <p class="text-sm font-bold mb-1">${t.set_monthly_budget || "Set monthly budget (€)"}</p>
+          <p class="text-sm font-bold mb-1">${t.setMonthlyBudget}</p>
           <input id="inp-budget" type="number" min="0" step="1"
             class="w-full border rounded-lg p-3"
             placeholder="e.g. 300"
@@ -188,27 +178,23 @@ export function renderUI({
         </div>
         <button id="btn-save-budget"
           class="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black shadow-md hover:bg-emerald-600">
-          ${t.save || "Save"}
+          ${t.save}
         </button>
       </div>
 
       <div class="mt-3 flex flex-wrap gap-3">
         <button id="btn-reset-month" class="text-xs text-red-500 font-bold hover:underline">
-          ${t.reset_monthly || "Reset monthly spending"}
+          ${t.resetMonthly}
         </button>
-
         <button id="btn-reset-all" class="text-xs text-slate-500 font-bold hover:underline">
-          ${t.reset_all || "Reset ALL data"}
+          ${t.resetAll}
         </button>
       </div>
 
-      <p class="mt-2 text-xs text-slate-500">
-        ${t.budget_tip || "Tip: Add total prices to Shopping List items and click BOUGHT to track spending automatically."}
-      </p>
+      <p class="mt-2 text-xs text-slate-500">${t.monthTip}</p>
     </div>
   `;
 
-  // Shopping trip budget widget (pretty progress bar + warn/red)
   const tripBudgetWidget = () => {
     const planned = sum(shoppingList.map(i => Number(i.price || 0)));
     const b = Number(tripBudget || 0);
@@ -222,17 +208,13 @@ export function renderUI({
       status === "over" ? "bg-rose-500" : status === "warn" ? "bg-amber-400" : "bg-emerald-500";
 
     const msg =
-      status === "over"
-        ? `❌ ${t.trip_over || "Trip budget exceeded"}`
-        : status === "warn"
-        ? `⚠️ ${t.trip_warn || "Watch out — near your trip limit"}`
-        : `✅ ${t.trip_ok || "All good"}`;
+      status === "over" ? t.budgetOver : status === "warn" ? t.budgetWarn : t.budgetOk;
 
     return `
       <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
         <div class="flex items-center justify-between">
-          <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.trip_budget || "Trip Budget"}</p>
-          <p class="text-sm font-black text-slate-700">${formatMoney(planned)} <span class="text-slate-400 font-semibold">${t.planned || "planned"}</span></p>
+          <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.tripBudgetShort}</p>
+          <p class="text-sm font-black text-slate-700">${formatMoney(planned)} <span class="text-slate-400 font-semibold">${t.plannedSpend}</span></p>
         </div>
 
         <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -242,7 +224,7 @@ export function renderUI({
         <div class="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
           <span>${pct}%</span>
           <span class="${left < 0 ? "text-rose-600 font-black" : "text-emerald-600 font-black"}">
-            ${left >= 0 ? `${formatMoney(left)} ${t.remaining || "remaining"}` : `${formatMoney(Math.abs(left))} ${t.over_budget || "over budget"}`}
+            ${left >= 0 ? `${formatMoney(left)} ${t.remaining}` : `${formatMoney(Math.abs(left))} ${t.budgetOver}`}
           </span>
         </div>
 
@@ -252,7 +234,7 @@ export function renderUI({
 
         <div class="mt-4 flex gap-3 items-end">
           <div class="flex-1">
-            <p class="text-sm font-bold mb-1">${t.set_trip_budget || "Set trip budget (€)"}</p>
+            <p class="text-sm font-bold mb-1">${t.setTripBudget}</p>
             <input id="inp-trip" type="number" min="0" step="1"
               class="w-full border rounded-lg p-3"
               placeholder="e.g. 50"
@@ -261,13 +243,13 @@ export function renderUI({
           </div>
           <button id="btn-save-trip"
             class="bg-slate-900 text-white px-6 py-3 rounded-xl font-black shadow-md hover:bg-slate-800">
-            ${t.save || "Save"}
+            ${t.save}
           </button>
         </div>
 
         <div class="mt-3">
           <button id="btn-reset-trip" class="text-xs text-slate-500 font-bold hover:underline">
-            ${t.reset_trip || "Reset trip budget"}
+            ${t.resetTripBudget}
           </button>
         </div>
       </div>
@@ -279,13 +261,13 @@ export function renderUI({
     root.innerHTML = `
       <div class="card">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-gray-800">${t.nav_inv}</h2>
+          <h2 class="text-2xl font-bold text-gray-800">${t.inventory}</h2>
           <div class="flex gap-2">
             <button id="btn-clear-inv" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold">
-              ${t.clear_all || "Clear all"}
+              ${t.clearAll}
             </button>
             <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">
-              + ${t.add}
+              + ${t.addInventory}
             </button>
           </div>
         </div>
@@ -294,7 +276,7 @@ export function renderUI({
           ${
             inventory.map(i => {
               const exp = i.expiry ? i.expiry : "—";
-              const badge = expiryBadge(exp);
+              const badge = expiryBadge(exp, t);
 
               return `
                 <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all">
@@ -307,13 +289,13 @@ export function renderUI({
                     <div class="mt-1 text-xs font-bold">${badge}</div>
                   </div>
                   <div class="flex gap-3 items-center">
-                    <button data-move="${i.id}" class="text-xs font-bold text-amber-600 uppercase tracking-tighter">${t.move_need}</button>
-                    <button data-empty="${i.id}" class="text-xs font-bold text-rose-600 uppercase tracking-tighter">EMPTY</button>
+                    <button data-move="${i.id}" class="text-xs font-bold text-amber-600 uppercase tracking-tighter">${t.shopping}</button>
+                    <button data-empty="${i.id}" class="text-xs font-bold text-rose-600 uppercase tracking-tighter">${t.empty}</button>
                     <button data-del="${i.id}" class="text-xs text-red-400 font-bold uppercase tracking-tighter">X</button>
                   </div>
                 </div>
               `;
-            }).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`
+            }).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.emptyInventory}</p>`
           }
         </div>
       </div>
@@ -321,7 +303,6 @@ export function renderUI({
 
     document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
     document.getElementById("btn-clear-inv").onclick = () => onClearAllInventory();
-
     root.querySelectorAll("[data-move]").forEach(btn => btn.onclick = () => onMove(btn.dataset.move, "inventory"));
     root.querySelectorAll("[data-empty]").forEach(btn => btn.onclick = () => onEmpty(btn.dataset.empty));
     root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("inventory", btn.dataset.del));
@@ -333,13 +314,13 @@ export function renderUI({
     root.innerHTML = `
       <div class="card">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-gray-800">${t.nav_shop}</h2>
+          <h2 class="text-2xl font-bold text-gray-800">${t.shopping}</h2>
           <div class="flex gap-2">
             <button id="btn-clear-shop" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold">
-              ${t.clear_all || "Clear all"}
+              ${t.clearAll}
             </button>
             <button id="btn-add-shop" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">
-              + ${t.add}
+              + ${t.addShopping}
             </button>
           </div>
         </div>
@@ -354,38 +335,36 @@ export function renderUI({
             shoppingList.map(i => `
               <div class="flex justify-between p-4 border rounded-xl bg-white items-center border-slate-100 shadow-sm hover:border-emerald-200 transition-all">
                 <div>
-                  <p class="font-bold text-gray-800">
-                    ${escapeHtml(i.name)}
-                  </p>
+                  <p class="font-bold text-gray-800">${escapeHtml(i.name)}</p>
                   <p class="text-xs text-slate-500 font-semibold">
                     ${escapeHtml(i.category || "general")} • ${i.quantity} ${escapeHtml(i.unit || "")}
-                    ${i.shelfLifeDays ? ` • ${t.expiry_in || "Expiry in"} ${i.shelfLifeDays} ${t.days || "days"}` : ""}
+                    ${i.shelfLifeDays ? ` • ${t.expiryIn} ${i.shelfLifeDays} ${t.days}` : ""}
                   </p>
                   <p class="text-xs text-slate-500 font-semibold mt-1">
-                    ${i.price != null && i.price !== "" ? `${t.total || "Total"}: ${formatMoney(i.price)}` : (t.no_price || "No price yet")}
+                    ${i.price != null && i.price !== "" ? `${t.total}: ${formatMoney(i.price)}` : t.noPrice}
                   </p>
                 </div>
 
                 <div class="flex gap-2 items-center">
                   <button data-del="${i.id}" class="text-xs font-black text-slate-500 hover:underline">
-                    ${t.remove || "Remove"}
+                    ${t.remove}
                   </button>
 
                   <button data-move="${i.id}"
                     class="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black shadow-sm uppercase tracking-widest hover:bg-emerald-600 active:scale-[0.98] transition">
-                    ${t.move_bought || "BOUGHT"}
+                    ${t.bought}
                   </button>
                 </div>
               </div>
-            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`
+            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.emptyShopping}</p>`
           }
         </div>
 
         <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-100 shadow-inner">
           <button id="btn-suggest" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-black mb-2 uppercase tracking-widest shadow-md">
-            ${t.sugg_btn}
+            ${t.generateRecipes}
           </button>
-          <div id="ai-out" class="text-xs italic text-indigo-700 leading-relaxed font-medium">${t.sugg_info}</div>
+          <div id="ai-out" class="text-xs italic text-indigo-700 leading-relaxed font-medium"></div>
         </div>
       </div>
     `;
@@ -397,12 +376,10 @@ export function renderUI({
     root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("shopping", btn.dataset.del));
     document.getElementById("btn-suggest").onclick = () => onSuggest();
 
-    // monthly budget
     document.getElementById("btn-save-budget").onclick = () => onSaveBudget(document.getElementById("inp-budget").value);
     document.getElementById("btn-reset-month").onclick = () => onResetSpent();
     document.getElementById("btn-reset-all").onclick = () => onResetAll();
 
-    // trip budget
     document.getElementById("btn-save-trip").onclick = () => onSaveTripBudget(document.getElementById("inp-trip").value);
     document.getElementById("btn-reset-trip").onclick = () => onResetTripBudget();
 
@@ -413,21 +390,22 @@ export function renderUI({
   if (activeTab === "planner") {
     root.innerHTML = `
       <div class="card text-center py-10">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">${t.nav_plan}</h2>
-        <p class="text-gray-500 mb-8 max-w-sm mx-auto font-medium">${t.recipe_info}</p>
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">${t.planner}</h2>
+        <p class="text-gray-500 mb-8 max-w-sm mx-auto font-medium">${t.plannerHint}</p>
         <button id="btn-recipe" class="bg-purple-600 text-white px-10 py-3 rounded-full font-extrabold shadow-lg shadow-purple-200 hover:scale-105 transition-transform uppercase tracking-widest text-xs">
-          ${t.recipe_btn}
+          ${t.generateRecipes}
         </button>
-        <div id="ai-recipe-out" class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div>
+        <div id="ai-recipe-out" class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700">
+          ${t.recipePlaceholder}
+        </div>
       </div>
     `;
     document.getElementById("btn-recipe").onclick = () => onRecipe();
     return;
   }
 
-  // DASHBOARD (reports tab)
-  const expired = getExpiredOrSoon(inventory);
-
+  // DASHBOARD
+  const urgent = getExpiredOrSoon(inventory);
   const purchases = Array.isArray(monthPurchases) ? monthPurchases : [];
   const byCategory = groupByCategory(purchases);
   const donut = donutSvg(byCategory);
@@ -436,14 +414,14 @@ export function renderUI({
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
       <div class="card bg-rose-50 border-2 border-rose-100 shadow-none">
         <div class="flex items-center justify-between">
-          <p class="text-xs font-black text-rose-600 uppercase tracking-widest">${t.bad_items || "Bad / expiring"}</p>
-          <span class="text-xs font-black text-rose-700">${expired.length}</span>
+          <p class="text-xs font-black text-rose-600 uppercase tracking-widest">${t.expiredBlockTitle}</p>
+          <span class="text-xs font-black text-rose-700">${urgent.length}</span>
         </div>
         <div class="mt-3 space-y-2">
           ${
-            expired.length === 0
-              ? `<p class="text-sm text-rose-700/70 italic">${t.no_bad || "No urgent items 🎉"}</p>`
-              : expired.slice(0, 6).map(x => `
+            urgent.length === 0
+              ? `<p class="text-sm text-rose-700/70 italic">${t.noExpired}</p>`
+              : urgent.slice(0, 6).map(x => `
                 <div class="flex items-center justify-between bg-white/60 border border-rose-100 rounded-xl px-4 py-2">
                   <div class="text-sm font-bold text-rose-900">${escapeHtml(x.name)}</div>
                   <div class="text-xs font-black text-rose-700">${escapeHtml(x.badge)}</div>
@@ -454,30 +432,26 @@ export function renderUI({
       </div>
 
       <div class="card text-center bg-emerald-50 border-2 border-emerald-100 shadow-none">
-        <p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">${t.stat_stock}</p>
+        <p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">${t.inventoryBlockTitle}</p>
         <h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3>
-        <p class="text-xs text-emerald-700/70 font-semibold mt-2">${t.inventory_hint || "Items currently in your fridge"}</p>
+        <p class="text-xs text-emerald-700/70 font-semibold mt-2">${t.inventoryBlockHint}</p>
       </div>
     </div>
 
-    <div class="mt-6">
-      ${budgetWidget()}
-    </div>
+    <div class="mt-6">${budgetWidget()}</div>
 
     <div class="mt-6 card">
       <div class="flex items-center justify-between">
-        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.by_category || "By category"}</p>
-        <p class="text-xs text-slate-400 font-semibold">${t.this_month || "This month (bought items)"}</p>
+        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.categoryCircleTitle}</p>
+        <p class="text-xs text-slate-400 font-semibold">${t.categoryCircleHint}</p>
       </div>
 
       <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-        <div class="flex justify-center">
-          ${donut}
-        </div>
+        <div class="flex justify-center">${donut}</div>
         <div>
           ${
             Object.keys(byCategory).length === 0
-              ? `<p class="text-sm text-slate-400 italic">${t.no_spending || "No spending data yet."}</p>`
+              ? `<p class="text-sm text-slate-400 italic">${t.noSpending}</p>`
               : Object.entries(byCategory)
                   .sort((a,b)=>b[1]-a[1])
                   .map(([k,v]) => `
@@ -497,16 +471,9 @@ export function renderUI({
   document.getElementById("btn-reset-all").onclick = () => onResetAll();
 }
 
-/* ---------- helpers ---------- */
-
-function sum(arr) {
-  return arr.reduce((a,b)=>a+Number(b||0),0);
-}
-
-function formatMoney(v) {
-  const n = Number(v || 0);
-  return `€${n.toFixed(2)}`;
-}
+/* helpers */
+function sum(arr) { return arr.reduce((a,b)=>a+Number(b||0),0); }
+function formatMoney(v) { const n = Number(v || 0); return `€${n.toFixed(2)}`; }
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -517,7 +484,7 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-function expiryBadge(iso) {
+function expiryBadge(iso, t) {
   if (!iso || iso === "PENDING") return `<span class="text-slate-400">Expiry: —</span>`;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return `<span class="text-slate-400">Expiry: —</span>`;
@@ -525,9 +492,9 @@ function expiryBadge(iso) {
   const now = new Date();
   const diffDays = Math.ceil((d - now) / (1000*60*60*24));
 
-  if (diffDays < 0) return `<span class="text-rose-700 bg-rose-50 border border-rose-100 px-2 py-1 rounded-lg">Expired</span>`;
-  if (diffDays <= 2) return `<span class="text-amber-800 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg">${diffDays} days left</span>`;
-  return `<span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg">${diffDays} days left</span>`;
+  if (diffDays < 0) return `<span class="text-rose-700 bg-rose-50 border border-rose-100 px-2 py-1 rounded-lg">${t.expired}</span>`;
+  if (diffDays <= 2) return `<span class="text-amber-800 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg">${diffDays} ${t.daysLeft}</span>`;
+  return `<span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg">${diffDays} ${t.daysLeft}</span>`;
 }
 
 function getExpiredOrSoon(inventory) {
@@ -579,7 +546,7 @@ function donutSvg(map) {
 
   const slices = entries.sort((a,b)=>b[1]-a[1]).slice(0,6);
 
-  const circles = slices.map(([cat,val], idx) => {
+  const circles = slices.map(([_,val], idx) => {
     const frac = val / total;
     const len = frac * C;
     const dash = `${len} ${C - len}`;
