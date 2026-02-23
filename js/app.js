@@ -21,13 +21,12 @@ function init() {
     try {
         updateAllTranslations();
         setupLanguageDropdown();
-        // Bind the close button once
         const cancelBtn = document.getElementById("btn-cancel");
         if (cancelBtn) cancelBtn.onclick = closeModal;
     } catch (e) { console.error("Initialization failed", e); }
 }
 
-// Navigation
+// Global Nav Listeners
 document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
 document.getElementById("nav-shopping").onclick = () => switchTab("shopping");
 document.getElementById("nav-planner").onclick = () => switchTab("planner");
@@ -39,21 +38,25 @@ document.getElementById("item-form").onsubmit = async (e) => {
     
     const type = document.getElementById("list-type").value;
     const id = document.getElementById("item-id").value || crypto.randomUUID();
-    const name = document.getElementById("item-name").value.trim();
-    const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
-    const unit = document.getElementById("item-unit").value.trim();
-    const price = parseFloat(document.getElementById("inp-price")?.value || "0");
-    const category = (document.getElementById("inp-category")?.value || "").trim();
-    const expiryDate = document.getElementById("item-expiry-date")?.value || "";
+    
+    // Safely get values from form
+    const nameEl = document.getElementById("item-name");
+    const qtyEl = document.getElementById("item-quantity");
+    const unitEl = document.getElementById("item-unit");
+    const priceEl = document.getElementById("inp-price");
+    const catEl = document.getElementById("inp-category");
+    const expEl = document.getElementById("item-expiry-date");
 
-    if (!name) return;
+    if (!nameEl.value.trim()) return;
 
     const itemData = {
-        id, name, 
-        quantity: isFinite(quantity) ? quantity : 1,
-        unit, expiry: expiryDate,
-        price: isFinite(price) ? price : 0,
-        category
+        id,
+        name: nameEl.value.trim(),
+        quantity: parseInt(qtyEl.value || "1", 10),
+        unit: unitEl.value.trim(),
+        price: parseFloat(priceEl?.value || "0"),
+        category: catEl?.value || "",
+        expiry: expEl?.value || ""
     };
 
     if (type === "inventory") upsert(inventory, itemData);
@@ -80,13 +83,8 @@ function draw() {
         t, lang, activeTab, inventory, shoppingList,
         historicalWaste, monthlyBudget, monthSpent,
         onAdd: (type) => {
-            // SAFE OPEN
-            try {
-                updateAllTranslations();
-                openModal(t, type, null);
-            } catch (err) {
-                console.error("Modal failed to open:", err);
-            }
+            // This is the trigger for the window
+            openModal(t, type, null);
         },
         onMove: moveItem,
         onDelete: deleteItem,
@@ -133,9 +131,9 @@ async function deleteItem(type, id) {
     draw();
 }
 
-async function clearInventory() { if(confirm("Clear?")) { inventory = []; await persist(); draw(); }}
-async function clearShopping() { if(confirm("Clear?")) { shoppingList = []; await persist(); draw(); }}
-async function resetAll() { if(confirm("Reset?")) { inventory = []; shoppingList = []; historicalWaste = 0; monthlyBudget = 0; monthSpent = 0; await persist(); draw(); }}
+async function clearInventory() { if(confirm(t.clear_inv_confirm || "Clear?")) { inventory = []; await persist(); draw(); }}
+async function clearShopping() { if(confirm(t.clear_shop_confirm || "Clear?")) { shoppingList = []; await persist(); draw(); }}
+async function resetAll() { if(confirm(t.reset_all_confirm || "Reset All?")) { inventory = []; shoppingList = []; historicalWaste = 0; monthlyBudget = 0; monthSpent = 0; await persist(); draw(); }}
 
 function showSuggestions() {
     const out = document.getElementById("ai-out");
@@ -154,9 +152,11 @@ async function saveBudget(val) {
 }
 
 async function resetSpent() {
-    monthSpent = 0;
-    await persist();
-    draw();
+    if (confirm("Reset spent counter?")) {
+        monthSpent = 0;
+        await persist();
+        draw();
+    }
 }
 
 function processWaste() {
@@ -193,6 +193,7 @@ signInAndSync({
 
 function updateAllTranslations() {
     setHeaderText(t);
+    // Safe-check mapping to prevent crashes if HTML IDs are missing
     const map = {
         'lbl-price': t.lbl_price,
         'tip-price': t.tip_price,
@@ -213,9 +214,7 @@ function updateAllTranslations() {
     };
     Object.keys(map).forEach(id => {
         const el = document.getElementById(id);
-        if (el && map[id]) {
-            el.innerText = map[id];
-        }
+        if (el && map[id]) el.innerText = map[id];
     });
 }
 
