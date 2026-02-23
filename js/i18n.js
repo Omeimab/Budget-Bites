@@ -4,13 +4,14 @@ export const I18N = {
     inventory: "Inventory",
     shopping: "Shopping List",
     planner: "Meal Planner",
-    reports: "Reports",
+    dashboard: "Dashboard",
+
     initializing: "Initializing…",
-    ready: "Ready • autosaved locally",
-    loading: "Loading…",
+    ready: "READY • AUTOSAVED LOCALLY",
 
     addInventory: "Add inventory item",
     addShopping: "Add shopping item",
+
     emptyInventory: "No items yet. Add your first inventory item.",
     emptyShopping: "No items yet. Add your first shopping item.",
 
@@ -25,28 +26,46 @@ export const I18N = {
     unit: "Unit",
     totalPrice: "Total price (€)",
     priceHint: "Tip: enter the total price for this item (not per unit).",
-    shelfLife: "Expiry (days)",
-    expiryHint: "We will calculate an expiry date from today.",
+    shelfLife: "Expiry in days",
+    expiryHint: "Used to calculate expiry in inventory after you buy it.",
     cancel: "Cancel",
     save: "Save",
-
-    bought: "Bought",
-    notBought: "Not bought",
-    delete: "Delete",
     edit: "Edit",
+    delete: "Delete",
 
-    tripBudget: "Shopping trip budget (€)",
-    monthlyBudget: "Monthly budget (€)",
     plannedSpend: "Planned spend",
-    spentThisMonth: "Spent this month",
+    tripBudget: "Shopping trip budget (€)",
+    tripBudgetShort: "Trip budget",
     remaining: "Remaining",
-    byCategory: "By category",
+    reset: "Reset",
 
-    expires: "Expires",
+    budgetOk: "All good ✅",
+    budgetWarn: "Watch out — near your limit ⚠️",
+    budgetOver: "Over budget ❌",
+
+    price: "Price",
+    expiryIn: "Expiry in",
+    days: "days",
+
+    generateRecipes: "Generate recipes",
+    plannerHint: "Click the button to generate simple recipe ideas based on your inventory.",
+    recipePlaceholder: "Recipe details can be added next.",
+
+    monthlyBudget: "Monthly budget (€)",
+    spentThisMonth: "Spent this month",
+
     expired: "Expired",
     daysLeft: "days left",
 
-    plannerComing: "Planner is a placeholder for now (we can add AI recipes next).",
+    expiredBlockTitle: "Expiring / expired",
+    noExpired: "Nothing urgent 🎉",
+
+    inventoryBlockTitle: "Inventory",
+    inventoryBlockHint: "All items currently in your inventory (including bought items from shopping).",
+
+    categoryCircleTitle: "By category",
+    categoryCircleHint: "This month (from inventory additions)",
+    noSpending: "No spending data yet."
   },
 
   de: {
@@ -54,18 +73,19 @@ export const I18N = {
     inventory: "Vorrat",
     shopping: "Einkaufsliste",
     planner: "Essensplan",
-    reports: "Berichte",
+    dashboard: "Dashboard",
+
     initializing: "Initialisiere…",
-    ready: "Bereit • lokal automatisch gespeichert",
-    loading: "Lädt…",
+    ready: "BEREIT • LOKAL GESPEICHERT",
 
     addInventory: "Vorratsartikel hinzufügen",
     addShopping: "Einkaufsartikel hinzufügen",
+
     emptyInventory: "Noch keine Artikel. Füge deinen ersten Vorratsartikel hinzu.",
     emptyShopping: "Noch keine Artikel. Füge deinen ersten Einkaufsartikel hinzu.",
 
     modalAddInv: "Zum Vorrat hinzufügen",
-    modalEditInv: "Vorratsartikel bearbeiten",
+    modalEditInv: "Vorrat bearbeiten",
     modalAddShop: "Zur Einkaufsliste hinzufügen",
     modalEditShop: "Einkaufsartikel bearbeiten",
 
@@ -74,29 +94,47 @@ export const I18N = {
     qty: "Menge",
     unit: "Einheit",
     totalPrice: "Gesamtpreis (€)",
-    priceHint: "Tipp: Gesamtpreis für diesen Artikel eingeben (nicht pro Stück).",
-    shelfLife: "Haltbarkeit (Tage)",
-    expiryHint: "Wir berechnen ein Ablaufdatum ab heute.",
+    priceHint: "Tipp: Gesamtpreis eingeben (nicht pro Stück).",
+    shelfLife: "Haltbarkeit in Tagen",
+    expiryHint: "Wird genutzt, um nach Kauf das Ablaufdatum zu berechnen.",
     cancel: "Abbrechen",
     save: "Speichern",
-
-    bought: "Gekauft",
-    notBought: "Nicht gekauft",
-    delete: "Löschen",
     edit: "Bearbeiten",
+    delete: "Löschen",
 
-    tripBudget: "Einkaufs-Budget (€)",
-    monthlyBudget: "Monatsbudget (€)",
     plannedSpend: "Geplante Ausgaben",
-    spentThisMonth: "Ausgaben diesen Monat",
+    tripBudget: "Einkaufsbudget (€)",
+    tripBudgetShort: "Budget",
     remaining: "Übrig",
-    byCategory: "Nach Kategorie",
+    reset: "Zurücksetzen",
 
-    expires: "Ablauf",
+    budgetOk: "Alles gut ✅",
+    budgetWarn: "Achtung — fast am Limit ⚠️",
+    budgetOver: "Budget überschritten ❌",
+
+    price: "Preis",
+    expiryIn: "Haltbar",
+    days: "Tage",
+
+    generateRecipes: "Rezepte generieren",
+    plannerHint: "Klick, um einfache Rezeptideen aus deinem Vorrat zu bekommen.",
+    recipePlaceholder: "Rezept-Details können als Nächstes ergänzt werden.",
+
+    monthlyBudget: "Monatsbudget (€)",
+    spentThisMonth: "Ausgaben diesen Monat",
+
     expired: "Abgelaufen",
     daysLeft: "Tage übrig",
 
-    plannerComing: "Essensplan ist vorerst ein Platzhalter (AI Rezepte können wir als Nächstes hinzufügen).",
+    expiredBlockTitle: "Bald ablaufend / abgelaufen",
+    noExpired: "Nichts dringend 🎉",
+
+    inventoryBlockTitle: "Vorrat",
+    inventoryBlockHint: "Alle Artikel im Vorrat (inkl. aus Einkaufsliste gekauft).",
+
+    categoryCircleTitle: "Nach Kategorie",
+    categoryCircleHint: "Diesen Monat (aus Vorratszugängen)",
+    noSpending: "Noch keine Ausgabedaten."
   },
 
   it: {
@@ -104,13 +142,14 @@ export const I18N = {
     inventory: "Dispensa",
     shopping: "Lista Spesa",
     planner: "Piano Pasti",
-    reports: "Report",
+    dashboard: "Dashboard",
+
     initializing: "Inizializzazione…",
-    ready: "Pronto • salvato in locale",
-    loading: "Caricamento…",
+    ready: "PRONTO • SALVATO IN LOCALE",
 
     addInventory: "Aggiungi in dispensa",
     addShopping: "Aggiungi in lista spesa",
+
     emptyInventory: "Nessun elemento. Aggiungi il primo.",
     emptyShopping: "Nessun elemento. Aggiungi il primo.",
 
@@ -125,31 +164,49 @@ export const I18N = {
     unit: "Unità",
     totalPrice: "Prezzo totale (€)",
     priceHint: "Tip: inserisci il prezzo totale (non per unità).",
-    shelfLife: "Scadenza (giorni)",
-    expiryHint: "Calcoliamo una data di scadenza da oggi.",
+    shelfLife: "Scadenza in giorni",
+    expiryHint: "Serve per calcolare la data di scadenza quando lo compri.",
     cancel: "Annulla",
     save: "Salva",
-
-    bought: "Comprato",
-    notBought: "Non comprato",
-    delete: "Elimina",
     edit: "Modifica",
+    delete: "Elimina",
 
-    tripBudget: "Budget spesa (€)",
-    monthlyBudget: "Budget mensile (€)",
     plannedSpend: "Spesa prevista",
-    spentThisMonth: "Speso questo mese",
+    tripBudget: "Budget spesa (€)",
+    tripBudgetShort: "Budget",
     remaining: "Rimanente",
-    byCategory: "Per categoria",
+    reset: "Reset",
 
-    expires: "Scade",
+    budgetOk: "Tutto ok ✅",
+    budgetWarn: "Attenzione — quasi al limite ⚠️",
+    budgetOver: "Budget superato ❌",
+
+    price: "Prezzo",
+    expiryIn: "Scade tra",
+    days: "giorni",
+
+    generateRecipes: "Genera ricette",
+    plannerHint: "Clicca per idee ricette basate sulla dispensa.",
+    recipePlaceholder: "Dettagli ricetta da aggiungere dopo.",
+
+    monthlyBudget: "Budget mensile (€)",
+    spentThisMonth: "Speso questo mese",
+
     expired: "Scaduto",
     daysLeft: "giorni rimasti",
 
-    plannerComing: "Il planner è un placeholder (poi aggiungiamo ricette AI).",
+    expiredBlockTitle: "In scadenza / scaduti",
+    noExpired: "Niente di urgente 🎉",
+
+    inventoryBlockTitle: "Dispensa",
+    inventoryBlockHint: "Tutti gli elementi in dispensa (inclusi quelli comprati).",
+
+    categoryCircleTitle: "Per categoria",
+    categoryCircleHint: "Questo mese (da elementi in dispensa)",
+    noSpending: "Nessun dato spesa."
   }
 };
 
 export function t(lang, key) {
-  return (I18N[lang] && I18N[lang][key]) ? I18N[lang][key] : I18N.en[key] ?? key;
+  return (I18N[lang] && I18N[lang][key]) ? I18N[lang][key] : (I18N.en[key] || key);
 }
