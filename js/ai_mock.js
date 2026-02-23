@@ -68,7 +68,7 @@ export function getSmartRecipe(lang, inventoryNames = []) {
   };
 
   const hasEgg = has("egg", "eier", "uova");
-  const hasChicken = has("chicken", "pollo", "hähn");
+  const hasChicken = has("chicken", "pollo", "Hähnchen");
   const hasTuna = has("tuna", "tonno", "thun");
   const hasPasta = has("pasta", "spaghetti", "penne");
   const hasRice = has("rice", "reis", "riso");
