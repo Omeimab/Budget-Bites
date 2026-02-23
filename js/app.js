@@ -1,3 +1,4 @@
+
 document.getElementById("item-form").onsubmit = async (e) => {
   e.preventDefault();
   const type = document.getElementById("list-type").value;
@@ -6,25 +7,23 @@ document.getElementById("item-form").onsubmit = async (e) => {
   const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
   const unit = document.getElementById("item-unit").value.trim();
   const price = parseFloat(document.getElementById("inp-price")?.value || "0");
-  const shelfLife = parseInt(document.getElementById("item-shelf-life").value || "", 10);
-  
-  const safePrice = Number.isFinite(price) && price >= 0 ? price : 0;
+  const days = parseInt(document.getElementById("item-shelf-life").value || "", 10);
+
   if (!name) return;
 
-  // Calculate Expiry Date based on days entered
-  let expiry = "";
-  if (Number.isFinite(shelfLife) && shelfLife > 0) {
+  let expiry = "PENDING";
+  if (Number.isFinite(days) && days > 0) {
     const d = new Date();
-    d.setDate(d.getDate() + shelfLife);
+    d.setDate(d.getDate() + days);
     expiry = d.toISOString().split("T")[0];
   }
 
-  const newItem = { id, name, quantity, unit, price: safePrice, expiry };
+  const itemData = { id, name, quantity, unit, price: Number.isFinite(price) ? price : 0, expiry };
 
   if (type === "inventory") {
-    upsert(inventory, newItem);
+    upsert(inventory, itemData);
   } else {
-    upsert(shoppingList, newItem);
+    upsert(shoppingList, itemData);
   }
 
   closeModal();
