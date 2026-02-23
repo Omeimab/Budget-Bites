@@ -42,7 +42,9 @@ export async function saveData({
   shoppingList,
   historicalWaste,
   monthlyBudget = 0,
-  monthSpent = 0
+  monthSpent = 0,
+  monthPurchases = [],
+  tripBudget = 0
 }) {
   if (!userId) return;
 
@@ -54,6 +56,8 @@ export async function saveData({
     historicalWaste,
     monthlyBudget,
     monthSpent,
+    monthPurchases,
+    tripBudget,
     updated: new Date().toISOString()
   });
 }
