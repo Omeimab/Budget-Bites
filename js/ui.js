@@ -147,7 +147,68 @@ export function renderUI(state) {
       </div>
     </div>
   `;
+export function openModal(t, type, item) {
+  try {
+    const container = document.getElementById("modal-container");
+    const form = document.getElementById("item-form");
+    if (!container || !form) {
+        console.error("Modal elements missing in HTML");
+        return;
+    }
 
+    form.reset();
+
+    // Set Type & ID
+    const typeField = document.getElementById("list-type");
+    const idField = document.getElementById("item-id");
+    if (typeField) typeField.value = type;
+    if (idField) idField.value = item ? item.id : "";
+
+    // Set Title
+    const title = document.getElementById("modal-title");
+    if (title) title.innerText = item ? (t.edit || "Edit") : (t.add || "Add");
+
+    // --- Safe Translation of Labels ---
+    const setLabel = (id, text) => {
+        const el = document.getElementById(id);
+        if (el && text) el.innerText = text;
+    };
+
+    setLabel("lbl-name", t.name);
+    setLabel("lbl-qty", t.qty);
+    setLabel("lbl-unit", t.unit);
+    setLabel("lbl-price", t.lbl_price);
+    setLabel("lbl-category", t.lbl_category);
+    setLabel("lbl-expiry-date", t.lbl_expiry_date || t.expiry_logic);
+
+    // Populate values if editing
+    if (item) {
+        if (document.getElementById("item-name")) document.getElementById("item-name").value = item.name || "";
+        if (document.getElementById("item-quantity")) document.getElementById("item-quantity").value = item.quantity || 1;
+        if (document.getElementById("item-unit")) document.getElementById("item-unit").value = item.unit || "";
+        if (document.getElementById("inp-price")) document.getElementById("inp-price").value = item.price || 0;
+        if (document.getElementById("inp-category")) document.getElementById("inp-category").value = item.category || "";
+        if (document.getElementById("item-expiry-date")) document.getElementById("item-expiry-date").value = item.expiry || "";
+    }
+
+    // Translate Buttons
+    setLabel("btn-save", t.save);
+    setLabel("btn-cancel", t.cancel);
+
+    // Show/Hide Expiry based on type
+    const expiryContainer = document.getElementById("expiry-date-container") || document.getElementById("expiry-field");
+    if (expiryContainer) {
+        expiryContainer.classList.toggle("hidden", type !== "inventory");
+    }
+
+    // Open Modal
+    container.classList.replace("hidden", "flex");
+    console.log("Modal opened successfully");
+
+  } catch (err) {
+    console.error("Crash inside openModal:", err);
+  }
+}
   // --- INVENTORY ---
   if (activeTab === "inventory") {
     root.innerHTML = `
