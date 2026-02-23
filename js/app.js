@@ -6,41 +6,45 @@ import {
   renderInventory,
   renderShopping,
   renderPlanner,
-  renderReports,
-  wireReportsBudget,
+  renderDashboard,
+  wireDashboardBudget,
   openModal,
   closeModal,
   toast
 } from "./ui.js";
 
-console.log("[BudgetBites] app.js loaded");
+const state = loadState() ?? defaultState();
 
-var state = loadState();
-if (!state) state = defaultState();
+// ensure new fields exist (for older saved states)
+state.settings = state.settings || {};
+if (typeof state.settings.monthlyBudget !== "number") state.settings.monthlyBudget = 200;
+if (typeof state.settings.shoppingTripBudget !== "number") state.settings.shoppingTripBudget = 50;
+
+state.inventory = state.inventory || [];
+state.shopping = state.shopping || [];
 
 boot();
 
 function boot() {
   document.getElementById("lang-select").value = state.lang;
-
   setHeader(state.lang);
   setActiveTab(state.activeTab);
   setStatus(state.lang, "initializing");
 
-  document.getElementById("nav-inventory").onclick = function () { go("inventory"); };
-  document.getElementById("nav-shopping").onclick = function () { go("shopping"); };
-  document.getElementById("nav-planner").onclick = function () { go("planner"); };
-  document.getElementById("nav-reports").onclick = function () { go("reports"); };
+  document.getElementById("nav-inventory").onclick = () => go("inventory");
+  document.getElementById("nav-shopping").onclick = () => go("shopping");
+  document.getElementById("nav-planner").onclick = () => go("planner");
+  document.getElementById("nav-reports").onclick = () => go("reports"); // reports == dashboard now
 
-  document.getElementById("lang-select").onchange = function (e) {
+  document.getElementById("lang-select").onchange = (e) => {
     state.lang = e.target.value;
     persist();
     setHeader(state.lang);
     render();
   };
 
-  document.getElementById("modal-container").onclick = function (e) {
-    if (e.target && e.target.id === "modal-container") closeModal();
+  document.getElementById("modal-container").onclick = (e) => {
+    if (e.target.id === "modal-container") closeModal();
   };
 
   render();
@@ -61,45 +65,36 @@ function render() {
   setHeader(state.lang);
   setActiveTab(state.activeTab);
 
-  var handlers = {
-    openAdd: function (listType) {
-      var modalArgs = {
-        lang: state.lang,
-        mode: "add",
-        listType: listType,
-        item: null
-      };
-
-      openModal(modalArgs, function (payload) {
-        upsertItem(payload);
-        closeModal();
-        toast("Saved!");
-        render();
-      });
+  const handlers = {
+    openAdd: (listType) => {
+      openModal(
+        { lang: state.lang, mode: "add", listType, item: null },
+        (payload) => {
+          upsertItem(payload);
+          closeModal();
+          toast("Saved!");
+          render();
+        }
+      );
     },
 
-    openEdit: function (listType, id) {
-      var item = findItem(listType, id);
+    openEdit: (listType, id) => {
+      const item = findItem(listType, id);
       if (!item) return;
-
-      var modalArgs = {
-        lang: state.lang,
-        mode: "edit",
-        listType: listType,
-        item: item
-      };
-
-      openModal(modalArgs, function (payload) {
-        upsertItem(payload);
-        closeModal();
-        toast("Updated!");
-        render();
-      });
+      openModal(
+        { lang: state.lang, mode: "edit", listType, item },
+        (payload) => {
+          upsertItem(payload);
+          closeModal();
+          toast("Updated!");
+          render();
+        }
+      );
     },
 
-    remove: function (listType, id) {
-      var arr = listType === "inventory" ? state.inventory : state.shopping;
-      var idx = arr.findIndex(function (x) { return x.id === id; });
+    remove: (listType, id) => {
+      const arr = listType === "inventory" ? state.inventory : state.shopping;
+      const idx = arr.findIndex(x => x.id === id);
       if (idx >= 0) {
         arr.splice(idx, 1);
         persist();
@@ -108,44 +103,54 @@ function render() {
       }
     },
 
-    toggleBought: function (id) {
-      var it = state.shopping.find(function (x) { return x.id === id; });
+    toggleBought: (id) => {
+      const it = state.shopping.find(x => x.id === id);
       if (!it) return;
+
+      // mark bought
       it.bought = !it.bought;
       it.boughtAtTs = it.bought ? Date.now() : null;
+
+      // if bought => MOVE INTO INVENTORY and remove from shopping
+      if (it.bought) {
+        moveShoppingToInventory(it);
+        state.shopping = state.shopping.filter(x => x.id !== id);
+        toast("Moved to inventory ✅");
+      }
+
       persist();
       render();
     },
 
-    updateTripBudget: function (val) {
+    updateTripBudget: (val) => {
       state.settings.shoppingTripBudget = Number(val || 0);
       persist();
       render();
-      toast("Trip budget saved!");
+    },
+
+    resetTripBudget: () => {
+      state.settings.shoppingTripBudget = 50;
+      persist();
+      render();
+    },
+
+    resetMonthlyBudget: () => {
+      state.settings.monthlyBudget = 200;
+      persist();
+      render();
     }
   };
 
-  if (state.activeTab === "inventory") {
-    renderInventory(state, handlers);
-    return;
-  }
+  if (state.activeTab === "inventory") return renderInventory(state, handlers);
+  if (state.activeTab === "shopping") return renderShopping(state, handlers);
+  if (state.activeTab === "planner") return renderPlanner(state, handlers);
 
-  if (state.activeTab === "shopping") {
-    renderShopping(state, handlers);
-    return;
-  }
-
-  if (state.activeTab === "planner") {
-    renderPlanner(state);
-    return;
-  }
-
+  // reports tab is now Dashboard
   if (state.activeTab === "reports") {
-    renderReports(state);
-    wireReportsBudget(function (val) {
+    renderDashboard(state, handlers);
+    wireDashboardBudget((val) => {
       state.settings.monthlyBudget = Number(val || 0);
       persist();
-      toast("Monthly budget saved!");
       render();
     });
     return;
@@ -153,71 +158,73 @@ function render() {
 }
 
 function findItem(listType, id) {
-  var arr = listType === "inventory" ? state.inventory : state.shopping;
-  return arr.find(function (x) { return x.id === id; });
+  const arr = listType === "inventory" ? state.inventory : state.shopping;
+  return arr.find(x => x.id === id);
 }
 
 function upsertItem(payload) {
-  var listType = payload.listType;
-  var arr = listType === "inventory" ? state.inventory : state.shopping;
+  const listType = payload.listType;
+  const arr = listType === "inventory" ? state.inventory : state.shopping;
 
-  var now = Date.now();
-  var isNew = !payload.id;
+  const now = Date.now();
+  const isNew = !payload.id;
 
-  var base = {
-    id: payload.id ? payload.id : uid(),
+  const base = {
+    id: payload.id ?? uid(),
     name: payload.name,
-    category: payload.category ? payload.category : "general",
+    category: payload.category || "general",
     qty: Number(payload.qty || 1),
-    unit: payload.unit ? payload.unit : "",
-    priceTotal: Number(payload.priceTotal || 0)
+    unit: payload.unit || "",
+    priceTotal: Number(payload.priceTotal || 0),
+    shelfLifeDays: Number(payload.shelfLifeDays || 0),
   };
 
   if (listType === "inventory") {
-    var shelfDays = Number(payload.shelfLifeDays || 0);
-    var expiryTs = shelfDays > 0 ? (now + shelfDays * 24 * 60 * 60 * 1000) : null;
+    const expiryTs = base.shelfLifeDays > 0 ? (now + base.shelfLifeDays * 24 * 60 * 60 * 1000) : null;
+    const prev = findItem("inventory", base.id);
 
-    var prev = findItem("inventory", base.id);
-
-    var item = {
-      id: base.id,
-      name: base.name,
-      category: base.category,
-      qty: base.qty,
-      unit: base.unit,
-      priceTotal: base.priceTotal,
-      shelfLifeDays: shelfDays,
-      expiryTs: expiryTs,
-      createdAtTs: isNew ? now : (prev && prev.createdAtTs ? prev.createdAtTs : now)
+    const item = {
+      ...base,
+      expiryTs,
+      createdAtTs: isNew ? now : (prev?.createdAtTs ?? now),
     };
 
-    var idxInv = arr.findIndex(function (x) { return x.id === item.id; });
-    if (idxInv >= 0) arr[idxInv] = item;
-    else arr.push(item);
-
+    const idx = arr.findIndex(x => x.id === item.id);
+    if (idx >= 0) arr[idx] = item; else arr.push(item);
     persist();
     return;
   }
 
   if (listType === "shopping") {
-    var prevS = findItem("shopping", base.id);
-
-    var itemS = {
-      id: base.id,
-      name: base.name,
-      category: base.category,
-      qty: base.qty,
-      unit: base.unit,
-      priceTotal: base.priceTotal,
-      bought: prevS ? !!prevS.bought : false,
-      createdAtTs: isNew ? now : (prevS && prevS.createdAtTs ? prevS.createdAtTs : now),
-      boughtAtTs: prevS ? (prevS.boughtAtTs || null) : null
+    const prev = findItem("shopping", base.id);
+    const item = {
+      ...base,
+      bought: prev?.bought ?? false,
+      createdAtTs: isNew ? now : (prev?.createdAtTs ?? now),
+      boughtAtTs: prev?.boughtAtTs ?? null,
     };
 
-    var idxShop = arr.findIndex(function (x) { return x.id === itemS.id; });
-    if (idxShop >= 0) arr[idxShop] = itemS;
-    else arr.push(itemS);
-//trig
+    const idx = arr.findIndex(x => x.id === item.id);
+    if (idx >= 0) arr[idx] = item; else arr.push(item);
     persist();
   }
+}
+
+function moveShoppingToInventory(shopItem) {
+  const now = Date.now();
+  const shelf = Number(shopItem.shelfLifeDays || 0);
+  const expiryTs = shelf > 0 ? (now + shelf * 24 * 60 * 60 * 1000) : null;
+
+  state.inventory.push({
+    id: uid(),
+    name: shopItem.name,
+    category: shopItem.category || "general",
+    qty: Number(shopItem.qty || 1),
+    unit: shopItem.unit || "",
+    priceTotal: Number(shopItem.priceTotal || 0),
+    shelfLifeDays: shelf,
+    expiryTs,
+    createdAtTs: now,
+    source: "shopping"
+  });
 }
