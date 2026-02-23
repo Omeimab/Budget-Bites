@@ -19,7 +19,8 @@ let t = translations[lang];
 const { db, auth } = initFirebase();
 
 // ---------- init UI ----------
-setHeaderText(t);
+// This now translates the headers AND the new IDs in the HTML
+updateAllTranslations();
 setupLanguageDropdown();
 
 document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
@@ -43,39 +44,28 @@ document.getElementById("item-form").onsubmit = async (e) => {
   // total price (not per unit)
   const price = parseFloat(document.getElementById("inp-price")?.value || "0");
 
-  // category (optional)
+  // category
   const category = (document.getElementById("inp-category")?.value || "").trim();
+
+  // NEW: Get Date directly from the new date input
+  const expiryDate = document.getElementById("item-expiry-date").value;
 
   if (!name) return;
 
+  const itemData = {
+    id,
+    name,
+    quantity: Number.isFinite(quantity) ? quantity : 1,
+    unit,
+    expiry: expiryDate || "", // Saves the date string YYYY-MM-DD
+    price: Number.isFinite(price) ? price : 0,
+    category
+  };
+
   if (type === "inventory") {
-    const days = parseInt(document.getElementById("item-shelf-life").value || "", 10);
-    let expiry = "";
-
-    if (Number.isFinite(days) && days > 0) {
-      const d = new Date();
-      d.setDate(d.getDate() + days);
-      expiry = d.toISOString().split("T")[0];
-    }
-
-    upsert(inventory, {
-      id,
-      name,
-      quantity: Number.isFinite(quantity) ? quantity : 1,
-      unit,
-      expiry,
-      price: Number.isFinite(price) ? price : 0,
-      category
-    });
+    upsert(inventory, itemData);
   } else {
-    upsert(shoppingList, {
-      id,
-      name,
-      quantity: Number.isFinite(quantity) ? quantity : 1,
-      unit,
-      price: Number.isFinite(price) ? price : 0,
-      category
-    });
+    upsert(shoppingList, itemData);
   }
 
   await persist();
@@ -105,12 +95,15 @@ function draw() {
     monthlyBudget,
     monthSpent,
 
-    onAdd: (type) => openModal(t, type, null),
+    onAdd: (type) => {
+      openModal(t, type, null);
+      // Ensure the modal labels translate when opened
+      updateAllTranslations();
+    },
 
     onMove: moveItem,
     onDelete: deleteItem,
 
-    // NEW
     onDeleteShopping: deleteShoppingItem,
     onClearInventory: clearInventory,
     onClearShopping: clearShopping,
@@ -127,12 +120,17 @@ function draw() {
 // auto-waste processing (expired items)
 function processWaste() {
   const now = new Date();
+  now.setHours(0,0,0,0); // Reset time for accurate date comparison
   const before = inventory.length;
 
   inventory = inventory.filter((i) => {
-    if (i.expiry && i.expiry !== "PENDING" && new Date(i.expiry) < now) {
-      historicalWaste++;
-      return false;
+    // If item has a date and that date is earlier than today...
+    if (i.expiry && i.expiry !== "" && i.expiry !== "PENDING") {
+      const itemExpiry = new Date(i.expiry);
+      if (itemExpiry < now) {
+        historicalWaste++;
+        return false; // Remove from inventory
+      }
     }
     return true;
   });
@@ -157,41 +155,35 @@ async function saveBudget(val) {
   const n = Number(val || 0);
   monthlyBudget = Number.isFinite(n) && n >= 0 ? n : 0;
   await persist();
-  draw({ toast: "budget_saved" });
+  draw();
 }
 
 async function resetSpent() {
-  if (!confirm("Reset monthly spending to €0.00?")) return;
+  if (!confirm(t.reset_spent_confirm || "Reset monthly spending?")) return;
   monthSpent = 0;
   await persist();
-  draw({ toast: "spent_reset" });
+  draw();
 }
 
 // ---------- workflows ----------
 async function moveItem(id, from) {
-  // shopping → inventory (bought)
   if (from === "shopping") {
     const i = shoppingList.find((x) => x.id === id);
     if (!i) return;
 
     shoppingList = shoppingList.filter((x) => x.id !== id);
 
-    // moved item into inventory with expiry pending
-    inventory.push({ ...i, expiry: "PENDING" });
+    // Moves into inventory. Expiry can be edited later in the modal if needed.
+    inventory.push({ ...i });
 
-    // spending add = total price * quantity
     const price = Number(i.price || 0);
-    const qty = Number(i.quantity || 1);
-    const cost = (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
-
-    monthSpent = Number(monthSpent || 0) + cost;
+    monthSpent = Number(monthSpent || 0) + price;
 
     await persist();
     draw();
     return;
   }
 
-  // inventory → shopping (need again)
   const i = inventory.find((x) => x.id === id);
   if (!i) return;
 
@@ -209,44 +201,37 @@ async function moveItem(id, from) {
   draw();
 }
 
-// Inventory delete (with confirm)
 async function deleteItem(type, id) {
   if (!confirm(t.delete_confirm || "Delete this item?")) return;
-
   if (type === "inventory") inventory = inventory.filter((i) => i.id !== id);
   else shoppingList = shoppingList.filter((i) => i.id !== id);
-
   await persist();
   draw();
 }
 
-// Shopping delete single item (NO “Bought” needed)
 async function deleteShoppingItem(id) {
-  if (!confirm("Remove this item from the shopping list?")) return;
+  if (!confirm(t.delete_confirm || "Remove from list?")) return;
   shoppingList = shoppingList.filter((x) => x.id !== id);
   await persist();
   draw();
 }
 
-// Clear all inventory
 async function clearInventory() {
-  if (!confirm("Are you sure you want to clear ALL inventory items?")) return;
+  if (!confirm(t.clear_inv_confirm || "Clear ALL inventory?")) return;
   inventory = [];
   await persist();
   draw();
 }
 
-// Clear all shopping list
 async function clearShopping() {
-  if (!confirm("Are you sure you want to clear ALL shopping list items?")) return;
+  if (!confirm(t.clear_shop_confirm || "Clear ALL shopping list?")) return;
   shoppingList = [];
   await persist();
   draw();
 }
 
-// Reset everything
 async function resetAll() {
-  if (!confirm("Reset EVERYTHING (inventory, shopping list, budget spent, waste)?")) return;
+  if (!confirm(t.reset_all_confirm || "Reset everything?")) return;
   inventory = [];
   shoppingList = [];
   historicalWaste = 0;
@@ -260,13 +245,13 @@ async function resetAll() {
 function showSuggestions() {
   const out = document.getElementById("ai-out");
   const names = shoppingList.map((i) => i.name);
-  out.innerText = getSmartSuggestions(lang, names);
+  if (out) out.innerText = getSmartSuggestions(lang, names);
 }
 
 function showRecipe() {
   const out = document.getElementById("ai-recipe-out");
   const names = inventory.map((i) => i.name);
-  out.innerText = getSmartRecipe(lang, names);
+  if (out) out.innerText = getSmartRecipe(lang, names);
 }
 
 // ---------- auth + sync ----------
@@ -281,7 +266,6 @@ signInAndSync({
     inventory = d.inventory || [];
     shoppingList = d.shoppingList || [];
     historicalWaste = Number(d.historicalWaste || 0);
-
     monthlyBudget = Number(d.monthlyBudget || 0);
     monthSpent = Number(d.monthSpent || 0);
 
@@ -290,16 +274,48 @@ signInAndSync({
   }
 });
 
-// ---------- language ----------
+// ---------- language & translation logic ----------
+function updateAllTranslations() {
+  setHeaderText(t);
+  
+  // Surgical update for the new translation IDs we added to index.html
+  const translationMap = {
+    'lbl-price': t.lbl_price,
+    'tip-price': t.tip_price,
+    'lbl-category': t.lbl_category,
+    'tip-category': t.tip_category,
+    'lbl-expiry-date': t.lbl_expiry_date,
+    'opt-none': t.opt_none,
+    'opt-dairy': t.opt_dairy,
+    'opt-dry': t.opt_dry,
+    'opt-meat': t.opt_meat,
+    'opt-produce': t.opt_produce,
+    'opt-frozen': t.opt_frozen,
+    'opt-drinks': t.opt_drinks,
+    'opt-snacks': t.opt_snacks,
+    'opt-other': t.opt_other,
+    'btn-cancel': t.cancel,
+    'btn-save': t.save
+  };
+
+  Object.keys(translationMap).forEach(id => {
+    const el = document.getElementById(id);
+    if (el && translationMap[id]) {
+      el.innerText = translationMap[id];
+    }
+  });
+}
+
 function setupLanguageDropdown() {
   const sel = document.getElementById("lang-select");
+  if (!sel) return;
   sel.value = lang;
 
   sel.onchange = () => {
     lang = sel.value;
     setLang(lang);
     t = translations[lang];
-    setHeaderText(t);
+    updateAllTranslations();
     setOnlineState(t);
     draw();
   };
