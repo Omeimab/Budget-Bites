@@ -1,4 +1,4 @@
- import { translations, detectDefaultLang, setLang } from "./i18n.js";
+import { translations, detectDefaultLang, setLang } from "./i18n.js";
 import { initFirebase, signInAndSync, saveData } from "./firebase.js";
 import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
 import { getSmartRecipe } from "./ai_mock.js";
@@ -26,7 +26,7 @@ setupLanguageDropdown();
 // navigation buttons
 document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
 document.…
-[09:10, 23.2.2026] Omeima: import { translations, detectDefaultLang, setLang } from "./i18n.js";
+import { translations, detectDefaultLang, setLang } from "./i18n.js";
 import { initFirebase, signInAndSync, saveData } from "./firebase.js";
 import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
 import { getSmartRecipe } from "./ai_mock.js";
@@ -106,11 +106,11 @@ document.getElementById("item-form").onsubmit = async (e) => {
   const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
   const unit = document.getElementById("item-unit").value.trim();
 
-  // ✅ total price
+  //  total price
   const priceRaw = document.getElementById("inp-price")?.value ?? "";
   const price = Number(priceRaw);
 
-  // ✅ category (optional)
+  //  category (optional)
   const category = document.getElementById("inp-category")?.value ?? "";
 
   if (!name) return;

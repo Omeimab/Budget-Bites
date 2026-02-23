@@ -21,6 +21,31 @@ export function setActiveTab(activeTab) {
   document.getElementById("nav-reports").classList.toggle("active", activeTab === "reports");
 }
 
+/** Simple toast popup */
+export function showToast(message, type = "success") {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+
+  const el = document.createElement("div");
+  el.className =
+    "px-4 py-3 rounded-xl shadow-lg text-sm font-bold border " +
+    (type === "error"
+      ? "bg-rose-50 text-rose-700 border-rose-200"
+      : type === "warn"
+      ? "bg-amber-50 text-amber-800 border-amber-200"
+      : "bg-emerald-50 text-emerald-700 border-emerald-200");
+
+  el.textContent = message;
+  container.appendChild(el);
+
+  setTimeout(() => {
+    el.style.opacity = "0";
+    el.style.transition = "opacity 0.25s ease";
+  }, 2400);
+
+  setTimeout(() => el.remove(), 2700);
+}
+
 export function openModal(t, type, item) {
   const form = document.getElementById("item-form");
   form.reset();
@@ -34,9 +59,9 @@ export function openModal(t, type, item) {
   document.getElementById("lbl-unit").innerText = t.unit;
   document.getElementById("lbl-expiry").innerText = t.expiry_logic;
 
-  // price label + existing value
+  // Price label + existing value
   const lblPrice = document.getElementById("lbl-price");
-  if (lblPrice) lblPrice.innerText = t.price || "Price (€)";
+  if (lblPrice) lblPrice.innerText = (t.price_total || t.price || "Total price (€)");
 
   const inpPrice = document.getElementById("inp-price");
   if (inpPrice) inpPrice.value = item?.price ?? "";
@@ -68,15 +93,23 @@ export function renderUI({
   onSuggest,
   onRecipe,
   onSaveBudget,
-  onResetSpent
+  onResetSpent,
+  onClearAllInventory,
+  onClearAllShopping,
+  onEmptyItem
 }) {
   const root = document.getElementById("content-area");
   setActiveTab(activeTab);
 
   const spent = Number(monthSpent || 0);
   const budget = Number(monthlyBudget || 0);
-  const remaining = Math.max(0, budget - spent);
+
+  const remainingRaw = budget - spent;
+  const remaining = Math.max(0, remainingRaw);
+
   const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+  const overBy = budget > 0 ? Math.max(0, spent - budget) : 0;
+  const isOver = budget > 0 && spent > budget;
 
   const budgetWidget = () => `
     <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
@@ -91,14 +124,24 @@ export function renderUI({
 
       <div class="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
         <span>${pct}% used</span>
-        <span>${budget > 0 ? `${formatMoney(remaining)} remaining` : `Set a budget to track remaining`}</span>
+        <span>${budget > 0 ? ${formatMoney(remaining)} remaining : Set a budget to track remaining}</span>
       </div>
 
-      ${budget > 0 && remaining <= budget * 0.1 ? `
+      ${
+        budget > 0 && isOver
+          ? `
+        <div class="mt-3 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+          ❌ You exceeded your budget by ${formatMoney(overBy)}.
+        </div>
+      `
+          : budget > 0 && remaining <= budget * 0.1
+          ? `
         <div class="mt-3 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
           ⚠️ Watch out: you're close to your monthly budget.
         </div>
-      ` : ""}
+      `
+          : ""
+      }
 
       <div class="mt-4 flex gap-3 items-center">
         <div class="flex-1">
@@ -115,13 +158,21 @@ export function renderUI({
         </button>
       </div>
 
-      <button id="btn-reset-month"
-        class="mt-3 text-xs text-red-500 font-bold hover:underline">
-        Reset monthly spending
-      </button>
+      <div class="mt-3 flex items-center gap-4">
+        <button id="btn-reset-month"
+          class="text-xs text-red-500 font-bold hover:underline">
+          Reset monthly spending
+        </button>
+
+        <button id="btn-reset-all"
+          class="text-xs text-slate-500 font-bold hover:underline">
+          Reset all (inventory + shopping + budget)
+        </button>
+      </div>
 
       <p class="mt-2 text-xs text-slate-500">
         Tip: Add prices to Shopping List items and click BOUGHT to track spending automatically.
+        (Price is the TOTAL for the item.)
       </p>
     </div>
   `;
@@ -132,8 +183,18 @@ export function renderUI({
       <div class="card">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-2xl font-bold text-gray-800">${t.nav_inv}</h2>
-          <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">+ ${t.add}</button>
+          <div class="flex gap-3">
+            <button id="btn-clear-inv"
+              class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold hover:bg-slate-200">
+              Clear all
+            </button>
+            <button id="btn-add-inv"
+              class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">
+              + ${t.add}
+            </button>
+          </div>
         </div>
+
         <div class="space-y-3">
           ${
             inventory.map(i => `
@@ -145,20 +206,34 @@ export function renderUI({
                     ${i.price != null && i.price !== "" ? ` • ${formatMoney(i.price)}` : ""}
                   </p>
                 </div>
-                <div class="flex gap-3">
-                  <button data-move="${i.id}" class="text-xs font-bold text-amber-600 uppercase tracking-tighter">${t.move_need}</button>
-                  <button data-del="${i.id}" class="text-xs text-red-400 font-bold uppercase tracking-tighter">X</button>
+                <div class="flex gap-3 items-center">
+                  <button data-empty="${i.id}"
+                    class="text-xs font-bold text-slate-500 uppercase tracking-tighter hover:underline">
+                    Empty
+                  </button>
+                  <button data-move="${i.id}"
+                    class="text-xs font-bold text-amber-600 uppercase tracking-tighter">
+                    ${t.move_need}
+                  </button>
+                  <button data-del="${i.id}"
+                    class="text-xs text-red-400 font-bold uppercase tracking-tighter">
+                    X
+                  </button>
                 </div>
               </div>
-            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`
+            ).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>
           }
         </div>
       </div>
     `;
 
     document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
+    document.getElementById("btn-clear-inv").onclick = () => onClearAllInventory?.();
+
     root.querySelectorAll("[data-move]").forEach(btn => btn.onclick = () => onMove(btn.dataset.move, "inventory"));
     root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("inventory", btn.dataset.del));
+    root.querySelectorAll("[data-empty]").forEach(btn => btn.onclick = () => onEmptyItem?.(btn.dataset.empty));
+
     return;
   }
 
@@ -168,7 +243,16 @@ export function renderUI({
       <div class="card">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-2xl font-bold text-gray-800">${t.nav_shop}</h2>
-          <button id="btn-add-shop" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">+ ${t.add}</button>
+          <div class="flex gap-3">
+            <button id="btn-clear-shop"
+              class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold hover:bg-slate-200">
+              Clear all
+            </button>
+            <button id="btn-add-shop"
+              class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">
+              + ${t.add}
+            </button>
+          </div>
         </div>
 
         ${budgetWidget()}
@@ -182,24 +266,41 @@ export function renderUI({
                     ${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})
                   </p>
                   <p class="text-xs text-slate-500 font-semibold">
-                    ${i.price != null && i.price !== "" ? `Price: ${formatMoney(i.price)}` : "No price yet"}
+                    ${i.price != null && i.price !== "" ? Total price: ${formatMoney(i.price)} : "No price yet"}
                   </p>
                 </div>
-                <button data-move="${i.id}" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">${t.move_bought}</button>
+
+                <div class="flex items-center gap-2">
+                  <button data-del="${i.id}"
+                    class="px-3 py-1.5 rounded-lg text-xs font-black bg-slate-200 text-slate-700 hover:bg-slate-300">
+                    Remove
+                  </button>
+                  <button data-move="${i.id}"
+                    class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">
+                    ${t.move_bought}
+                  </button>
+                </div>
               </div>
-            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`
+            ).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>
           }
         </div>
 
         <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-100 shadow-inner">
-          <button id="btn-suggest" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-black mb-2 uppercase tracking-widest shadow-md">${t.sugg_btn}</button>
+          <button id="btn-suggest"
+            class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-black mb-2 uppercase tracking-widest shadow-md">
+            ${t.sugg_btn}
+          </button>
           <div id="ai-out" class="text-xs italic text-indigo-700 leading-relaxed font-medium">${t.sugg_info}</div>
         </div>
       </div>
     `;
 
     document.getElementById("btn-add-shop").onclick = () => onAdd("shopping");
+    document.getElementById("btn-clear-shop").onclick = () => onClearAllShopping?.();
+
     root.querySelectorAll("[data-move]").forEach(btn => btn.onclick = () => onMove(btn.dataset.move, "shopping"));
+    root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("shopping", btn.dataset.del));
+
     document.getElementById("btn-suggest").onclick = () => onSuggest();
 
     document.getElementById("btn-save-budget").onclick = () => {
@@ -208,6 +309,8 @@ export function renderUI({
     };
 
     document.getElementById("btn-reset-month").onclick = () => onResetSpent();
+    document.getElementById("btn-reset-all").onclick = () => onResetSpent(true);
+
     return;
   }
 
@@ -217,8 +320,12 @@ export function renderUI({
       <div class="card text-center py-10">
         <h2 class="text-2xl font-bold mb-4 text-gray-800">${t.nav_plan}</h2>
         <p class="text-gray-500 mb-8 max-w-sm mx-auto font-medium">${t.recipe_info}</p>
-        <button id="btn-recipe" class="bg-purple-600 text-white px-10 py-3 rounded-full font-extrabold shadow-lg shadow-purple-200 hover:scale-105 transition-transform uppercase tracking-widest text-xs">${t.recipe_btn}</button>
-        <div id="ai-recipe-out" class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div>
+        <button id="btn-recipe"
+          class="bg-purple-600 text-white px-10 py-3 rounded-full font-extrabold shadow-lg shadow-purple-200 hover:scale-105 transition-transform uppercase tracking-widest text-xs">
+          ${t.recipe_btn}
+        </button>
+        <div id="ai-recipe-out"
+          class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div>
       </div>
     `;
     document.getElementById("btn-recipe").onclick = () => onRecipe();
@@ -249,11 +356,12 @@ export function renderUI({
   };
 
   document.getElementById("btn-reset-month").onclick = () => onResetSpent();
+  document.getElementById("btn-reset-all").onclick = () => onResetSpent(true);
 }
 
 function formatMoney(v) {
   const n = Number(v || 0);
-  return `€${n.toFixed(2)}`;
+  return €${n.toFixed(2)};
 }
 
 function escapeHtml(s) {
