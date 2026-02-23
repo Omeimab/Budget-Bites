@@ -21,20 +21,22 @@ function init() {
     try {
         updateAllTranslations();
         setupLanguageDropdown();
-    } catch (e) { console.error("Translation init failed", e); }
+        // Bind the close button once
+        const cancelBtn = document.getElementById("btn-cancel");
+        if (cancelBtn) cancelBtn.onclick = closeModal;
+    } catch (e) { console.error("Initialization failed", e); }
 }
 
+// Navigation
 document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
 document.getElementById("nav-shopping").onclick = () => switchTab("shopping");
 document.getElementById("nav-planner").onclick = () => switchTab("planner");
 document.getElementById("nav-reports").onclick = () => switchTab("reports");
-document.getElementById("btn-cancel").onclick = closeModal;
 
 // ---------- modal submit ----------
 document.getElementById("item-form").onsubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submitted..."); // Check your console (F12) to see this
-
+    
     const type = document.getElementById("list-type").value;
     const id = document.getElementById("item-id").value || crypto.randomUUID();
     const name = document.getElementById("item-name").value.trim();
@@ -78,12 +80,16 @@ function draw() {
         t, lang, activeTab, inventory, shoppingList,
         historicalWaste, monthlyBudget, monthSpent,
         onAdd: (type) => {
-            openModal(t, type, null);
-            updateAllTranslations();
+            // SAFE OPEN
+            try {
+                updateAllTranslations();
+                openModal(t, type, null);
+            } catch (err) {
+                console.error("Modal failed to open:", err);
+            }
         },
         onMove: moveItem,
         onDelete: deleteItem,
-        onDeleteShopping: deleteShoppingItem,
         onClearInventory: clearInventory,
         onClearShopping: clearShopping,
         onResetAll: resetAll,
@@ -94,40 +100,12 @@ function draw() {
     });
 }
 
-function processWaste() {
-    const now = new Date();
-    now.setHours(0,0,0,0);
-    const before = inventory.length;
-    inventory = inventory.filter((i) => {
-        if (i.expiry) {
-            const itemExpiry = new Date(i.expiry);
-            if (itemExpiry < now) {
-                historicalWaste++;
-                return false;
-            }
-        }
-        return true;
-    });
-    if (inventory.length !== before) persist();
-}
-
+// --- Persistence & Logic ---
 async function persist() {
+    if (!userId) return;
     try {
         await saveData({ db, userId, inventory, shoppingList, historicalWaste, monthlyBudget, monthSpent });
     } catch (e) { console.error("Save failed", e); }
-}
-
-async function saveBudget(val) {
-    monthlyBudget = Number(val) || 0;
-    await persist();
-    draw();
-}
-
-async function resetSpent() {
-    if (!confirm(t.reset_spent_confirm || "Reset?")) return;
-    monthSpent = 0;
-    await persist();
-    draw();
 }
 
 async function moveItem(id, from) {
@@ -155,34 +133,9 @@ async function deleteItem(type, id) {
     draw();
 }
 
-async function deleteShoppingItem(id) {
-    if (!confirm(t.delete_confirm || "Delete?")) return;
-    shoppingList = shoppingList.filter((x) => x.id !== id);
-    await persist();
-    draw();
-}
-
-async function clearInventory() {
-    if (!confirm(t.clear_inv_confirm || "Clear?")) return;
-    inventory = [];
-    await persist();
-    draw();
-}
-
-async function clearShopping() {
-    if (!confirm(t.clear_shop_confirm || "Clear?")) return;
-    shoppingList = [];
-    await persist();
-    draw();
-}
-
-async function resetAll() {
-    if (!confirm(t.reset_all_confirm || "Reset All?")) return;
-    inventory = []; shoppingList = [];
-    historicalWaste = 0; monthlyBudget = 0; monthSpent = 0;
-    await persist();
-    draw();
-}
+async function clearInventory() { if(confirm("Clear?")) { inventory = []; await persist(); draw(); }}
+async function clearShopping() { if(confirm("Clear?")) { shoppingList = []; await persist(); draw(); }}
+async function resetAll() { if(confirm("Reset?")) { inventory = []; shoppingList = []; historicalWaste = 0; monthlyBudget = 0; monthSpent = 0; await persist(); draw(); }}
 
 function showSuggestions() {
     const out = document.getElementById("ai-out");
@@ -194,6 +147,36 @@ function showRecipe() {
     if (out) out.innerText = getSmartRecipe(lang, inventory.map(i => i.name));
 }
 
+async function saveBudget(val) {
+    monthlyBudget = Number(val) || 0;
+    await persist();
+    draw();
+}
+
+async function resetSpent() {
+    monthSpent = 0;
+    await persist();
+    draw();
+}
+
+function processWaste() {
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const before = inventory.length;
+    inventory = inventory.filter((i) => {
+        if (i.expiry) {
+            const itemExpiry = new Date(i.expiry);
+            if (itemExpiry < now) {
+                historicalWaste++;
+                return false;
+            }
+        }
+        return true;
+    });
+    if (inventory.length !== before) persist();
+}
+
+// --- Sync ---
 signInAndSync({
     db, auth,
     onReady: (uid) => { userId = uid; setOnlineState(t); },
@@ -230,7 +213,9 @@ function updateAllTranslations() {
     };
     Object.keys(map).forEach(id => {
         const el = document.getElementById(id);
-        if (el && map[id]) el.innerText = map[id];
+        if (el && map[id]) {
+            el.innerText = map[id];
+        }
     });
 }
 
