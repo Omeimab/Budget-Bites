@@ -44,7 +44,7 @@ export function getSmartSuggestions(lang, shoppingNames = []) {
     );
   }
 
-  return suggestions.slice(0, 3).map((s, i) => ${i + 1}) ${s}).join("\n");
+  return suggestions.slice(0, 3).map((s, i) => `${i + 1}) ${s}`).join("\n");
 }
 
 export function getSmartRecipe(lang, inventoryNames = []) {
@@ -174,7 +174,7 @@ export function getSmartRecipe(lang, inventoryNames = []) {
     );
   }
 
-  return pool.slice(0, 3).map(r =>
-    ${r.title}\nWhy: ${r.why}\nSteps:\n${r.steps}\n${r.tip ? `Tip: ${r.tip} : ""}`
+  return pool.slice(0, 3).map(r => 
+    `${r.title}\nWhy: ${r.why}\nSteps:\n${r.steps}${r.tip ? `\nTip: ${r.tip}` : ""}`
   ).join("\n\n---\n\n");
 }
