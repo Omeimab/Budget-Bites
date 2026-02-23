@@ -60,29 +60,42 @@ export function renderUI({
 
         <div class="space-y-3">
           ${inventory.map(i => `
-            <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-100 transition-all">
-              <div class="max-w-[55%]">
+            <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all">
+              <div class="max-w-[65%]">
                 <p class="font-bold text-gray-800 truncate">${escapeHtml(i.name)}</p>
                 <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
                   ${i.quantity} ${escapeHtml(i.unit || "")} • ${i.expiry || "PENDING"}
                 </p>
               </div>
-              <div class="flex gap-2 items-center">
-                <button data-move="${i.id}" class="bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter">
+              <div class="flex gap-4 items-center">
+                <button data-move="${i.id}" class="text-[10px] font-black text-amber-600 uppercase tracking-tighter px-3 py-2 bg-amber-50 rounded-lg hover:bg-amber-100">
                   ${t.move_need || "Refill"}
                 </button>
                 
-                <button data-empty="${i.id}" class="bg-rose-50 text-rose-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter">
-                  ${t.empty_action || "Empty"}
+                <button data-del="${i.id}" class="bg-slate-50 text-slate-400 hover:text-rose-500 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors border border-slate-100">
+                  ✕
                 </button>
-
-                <button data-del="${i.id}" class="text-slate-300 hover:text-rose-500 px-2 font-black transition-colors">✕</button>
               </div>
             </div>
           `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`}
         </div>
       </div>
     `;
+
+    // Re-attach listeners (Removed the Empty listener)
+    document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
+    document.getElementById("btn-clear-inv").onclick = onClearAllInventory;
+    
+    root.querySelectorAll("[data-move]").forEach(btn => {
+      btn.onclick = () => onMove(btn.dataset.move, "inventory");
+    });
+    
+    root.querySelectorAll("[data-del]").forEach(btn => {
+      btn.onclick = () => onDelete("inventory", btn.dataset.del);
+    });
+    
+    return;
+  }
 
     // RE-ATTACH LISTENERS (This part must follow the innerHTML)
     document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
