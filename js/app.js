@@ -1,24 +1,33 @@
 import { loadState, saveState, defaultState, uid } from "./storage.js";
-import { setHeader, setStatus, setActiveTab, renderInventory, renderShopping, renderPlanner, renderReports, wireReportsBudget, openModal, closeModal, toast } from "./ui.js";
+import {
+  setHeader,
+  setStatus,
+  setActiveTab,
+  renderInventory,
+  renderShopping,
+  renderPlanner,
+  renderReports,
+  wireReportsBudget,
+  openModal,
+  closeModal,
+  toast
+} from "./ui.js";
 
 const state = loadState() ?? defaultState();
 
 boot();
 
 function boot() {
-  // initial UI
   document.getElementById("lang-select").value = state.lang;
   setHeader(state.lang);
   setActiveTab(state.activeTab);
   setStatus(state.lang, "initializing");
 
-  // nav events
   document.getElementById("nav-inventory").onclick = () => go("inventory");
   document.getElementById("nav-shopping").onclick = () => go("shopping");
   document.getElementById("nav-planner").onclick = () => go("planner");
   document.getElementById("nav-reports").onclick = () => go("reports");
 
-  // lang switch
   document.getElementById("lang-select").onchange = (e) => {
     state.lang = e.target.value;
     persist();
@@ -26,12 +35,10 @@ function boot() {
     render();
   };
 
-  // close modal if click backdrop
   document.getElementById("modal-container").onclick = (e) => {
     if (e.target.id === "modal-container") closeModal();
   };
 
-  // first render
   render();
   setStatus(state.lang, "ready");
 }
@@ -59,8 +66,7 @@ function render() {
           closeModal();
           toast("Saved!");
           render();
-        },
-        () => {}
+        }
       );
     },
 
@@ -74,8 +80,7 @@ function render() {
           closeModal();
           toast("Updated!");
           render();
-        },
-        () => {}
+        }
       );
     },
 
@@ -147,11 +152,13 @@ function upsertItem(payload) {
     const shelfDays = Number(payload.shelfLifeDays || 0);
     const expiryTs = shelfDays > 0 ? (now + shelfDays * 24 * 60 * 60 * 1000) : null;
 
+    const prev = findItem("inventory", base.id);
+
     const item = {
       ...base,
       shelfLifeDays: shelfDays,
       expiryTs,
-      createdAtTs: isNew ? now : (findItem("inventory", base.id)?.createdAtTs ?? now),
+      createdAtTs: isNew ? now : (prev?.createdAtTs ?? now),
     };
 
     const idx = arr.findIndex(x => x.id === item.id);
