@@ -13,42 +13,29 @@
     .tab-button.active { background-color: #10b981; color: white; box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.4); transform: translateY(-2px); }
     .tab-button { transition: all 0.2s; border-bottom: 3px solid transparent; cursor: pointer; }
     .card { background-color: white; border-radius: 16px; box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
-    .loader { border: 3px solid #f3f3f3; border-top: 3px solid #10b981; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
-    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
     .hidden { display: none !important; }
   </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
-  <div id="toast-container" class="fixed top-4 right-4 z-[9999] space-y-2"></div>
-  <div class="max-w-6xl mx-auto">
+  <div class="max-w-4xl mx-auto">
     <header class="text-center mb-10">
-      <div class="flex items-center justify-center gap-3">
-        <h1 class="text-4xl font-extrabold text-gray-800">Budget Bites 🍽️</h1>
-        <select id="lang-select" class="text-xs font-bold border rounded-xl px-2 py-1 bg-white shadow-sm outline-none">
-          <option value="en">EN</option>
-          <option value="de">DE</option>
-          <option value="it">IT</option>
-        </select>
-      </div>
-      <p id="app-subtitle" class="text-gray-500 mt-1">Smart Kitchen Manager</p>
+      <h1 class="text-4xl font-extrabold text-gray-800">Budget Bites 🍽️</h1>
+      <p class="text-gray-500 mt-1">Smart Kitchen Manager</p>
     </header>
 
     <nav class="flex justify-center mb-10 bg-white p-2 rounded-full shadow-lg max-w-fit mx-auto">
       <button id="nav-inventory" class="tab-button active px-6 py-2 mx-1 text-sm font-bold rounded-full">Inventory</button>
       <button id="nav-shopping" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full">Shopping</button>
-      <button id="nav-planner" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full">Planner</button>
-      <button id="nav-reports" class="tab-button px-6 py-2 mx-1 text-sm font-bold rounded-full">Reports</button>
     </nav>
 
     <main id="content-area">
-      </main>
+        </main>
   </div>
 
   <div id="modal-container" class="fixed inset-0 bg-gray-900/75 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
       <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800">Add Item</h3>
       <form id="item-form" class="space-y-4">
-        <input type="hidden" id="item-id">
         <input type="hidden" id="list-type">
         <div>
           <label class="block text-sm font-bold text-gray-700 mb-1">Name</label>
@@ -61,47 +48,74 @@
           </div>
           <div class="flex-1">
             <label class="block text-sm font-bold text-gray-700 mb-1">Unit</label>
-            <input type="text" id="item-unit" placeholder="pcs, kg..." class="w-full rounded-xl border-gray-200 p-3 border outline-none">
+            <input type="text" id="item-unit" placeholder="pcs" class="w-full rounded-xl border-gray-200 p-3 border outline-none">
           </div>
         </div>
-        <div>
-          <label class="text-sm font-bold text-gray-700 block mb-1">Total Price (€)</label>
-          <input id="inp-price" type="number" step="0.01" min="0" class="w-full p-3 border border-gray-200 rounded-xl outline-none" placeholder="0.00">
-        </div>
-        <div id="expiry-field-container" class="pt-4 border-t border-dashed">
-          <label class="block text-xs font-black text-emerald-600 uppercase mb-2">Shelf Life (Days from today)</label>
+        <div id="expiry-field" class="pt-4 border-t border-dashed">
+          <label class="block text-xs font-black text-emerald-600 uppercase mb-2">Shelf Life (Days)</label>
           <input type="number" id="item-shelf-life" placeholder="e.g. 7" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border outline-none">
         </div>
         <div class="flex justify-end space-x-3 pt-6">
           <button type="button" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl">Cancel</button>
-          <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl">Save</button>
+          <button type="submit" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl">Save</button>
         </div>
       </form>
     </div>
   </div>
 
-  <script type="module">
-    // MOCK DATA & APP LOGIC TO PREVENT LOADING LOOPS
-    let inventory = [];
-    let shoppingList = [];
+  <script>
+    // App State
+    let inventory = JSON.parse(localStorage.getItem('bb_inventory')) || [];
+    let shoppingList = JSON.parse(localStorage.getItem('bb_shopping')) || [];
     let activeTab = 'inventory';
 
-    const draw = () => {
+    // Core Drawing Function (Fixed Syntax)
+    function draw() {
       const root = document.getElementById("content-area");
+      
       if (activeTab === 'inventory') {
+        let listHtml = inventory.map((item, index) => `
+          <div class="flex justify-between p-4 border rounded-xl items-center bg-white mb-2">
+            <div>
+              <p class="font-bold text-gray-800">${item.name}</p>
+              <p class="text-[10px] text-gray-400 font-bold uppercase">${item.quantity} ${item.unit} • Exp: ${item.expiry}</p>
+            </div>
+            <button onclick="removeItem('inventory', ${index})" class="text-red-400 px-2 font-black">✕</button>
+          </div>
+        `).join('');
+
         root.innerHTML = `
           <div class="card">
             <div class="flex justify-between items-center mb-6">
-              <h2 class="text-2xl font-bold">Kitchen Inventory</h2>
-              <button onclick="window.openModal('inventory')" class="bg-emerald-500 text-white px-4 py-2 rounded-full font-bold">+ Add</button>
+              <h2 class="text-2xl font-bold text-gray-800">My Kitchen</h2>
+              <button onclick="openModal('inventory')" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">+ Add</button>
             </div>
-            <div class="space-y-3">${inventory.map(i => `<div class="p-4 border rounded-xl flex justify-between"><span>${i.name} (${i.quantity}${i.unit})</span><span class="text-xs text-gray-400">${i.expiry}</span></div>`).join('') || 'Empty'}</div>
+            ${listHtml || '<p class="text-center italic text-gray-400 py-10">Kitchen is empty.</p>'}
           </div>`;
-      } else if (activeTab === 'shopping') {
-        root.innerHTML = `<div class="card"><h2 class="text-2xl font-bold mb-4">Shopping List</h2><button onclick="window.openModal('shopping')" class="bg-emerald-500 text-white px-4 py-2 rounded-full font-bold mb-4">+ Add Item</button></div>`;
-      }
-    };
+      } else {
+        let listHtml = shoppingList.map((item, index) => `
+          <div class="flex justify-between p-4 border rounded-xl items-center bg-emerald-50/20 border-emerald-100 mb-2">
+            <div>
+              <p class="font-bold text-gray-800">${item.name}</p>
+              <p class="text-[10px] text-emerald-600 font-bold uppercase">Needs Buying</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="moveToInventory(${index})" class="bg-emerald-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase">Bought</button>
+                <button onclick="removeItem('shopping', ${index})" class="text-gray-300 px-2 font-black">✕</button>
+            </div>
+          </div>
+        `).join('');
 
+        root.innerHTML = `
+          <div class="card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Shopping List</h2>
+            <button onclick="openModal('shopping')" class="bg-emerald-500 text-white px-4 py-2 rounded-full font-bold mb-4 w-full">+ Add Item</button>
+            ${listHtml || '<p class="text-center italic text-gray-400 py-10">Nothing to buy.</p>'}
+          </div>`;
+      }
+    }
+
+    // Modal Helpers
     window.openModal = (type) => {
       document.getElementById('list-type').value = type;
       document.getElementById('modal-container').classList.remove('hidden');
@@ -112,42 +126,71 @@
       document.getElementById('modal-container').classList.add('hidden');
     };
 
+    // Form Handling
     document.getElementById('item-form').onsubmit = (e) => {
       e.preventDefault();
       const type = document.getElementById('list-type').value;
       const shelfLife = parseInt(document.getElementById('item-shelf-life').value) || 0;
-      let expDate = "No Expiry";
+      
+      let expDate = "No Date";
       if(shelfLife > 0) {
         const d = new Date();
         d.setDate(d.getDate() + shelfLife);
         expDate = d.toISOString().split('T')[0];
       }
-      
-      const newItem = {
+
+      const item = {
         name: document.getElementById('item-name').value,
         quantity: document.getElementById('item-quantity').value,
         unit: document.getElementById('item-unit').value,
         expiry: expDate
       };
 
-      if(type === 'inventory') inventory.push(newItem);
-      else shoppingList.push(newItem);
+      if(type === 'inventory') inventory.push(item);
+      else shoppingList.push(item);
 
+      save();
       document.getElementById('modal-container').classList.add('hidden');
       document.getElementById('item-form').reset();
       draw();
     };
 
-    document.querySelectorAll('.tab-button').forEach(btn => {
-      btn.onclick = () => {
-        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        activeTab = btn.id.replace('nav-', '');
+    window.removeItem = (type, index) => {
+        if(type === 'inventory') inventory.splice(index, 1);
+        else shoppingList.splice(index, 1);
+        save();
         draw();
-      };
-    });
+    };
 
-    draw(); // Initial Render
+    window.moveToInventory = (index) => {
+        const item = shoppingList.splice(index, 1)[0];
+        inventory.push(item);
+        save();
+        draw();
+    };
+
+    function save() {
+      localStorage.setItem('bb_inventory', JSON.stringify(inventory));
+      localStorage.setItem('bb_shopping', JSON.stringify(shoppingList));
+    }
+
+    // Tab Navigation
+    document.getElementById('nav-inventory').onclick = () => {
+      activeTab = 'inventory';
+      document.getElementById('nav-inventory').classList.add('active');
+      document.getElementById('nav-shopping').classList.remove('active');
+      draw();
+    };
+
+    document.getElementById('nav-shopping').onclick = () => {
+      activeTab = 'shopping';
+      document.getElementById('nav-shopping').classList.add('active');
+      document.getElementById('nav-inventory').classList.remove('active');
+      draw();
+    };
+
+    // Initial Start
+    draw();
   </script>
 </body>
 </html>
