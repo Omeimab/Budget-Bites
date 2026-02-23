@@ -1,230 +1,311 @@
-import { loadState, saveState, defaultState, uid } from "./storage.js";
-import {
-  setHeader,
-  setStatus,
-  setActiveTab,
-  renderInventory,
-  renderShopping,
-  renderPlanner,
-  renderDashboard,
-  wireDashboardBudget,
-  openModal,
-  closeModal,
-  toast
-} from "./ui.js";
+import { translations, detectDefaultLang, setLang } from "./i18n.js";
+import { initFirebase, signInAndSync, saveData } from "./firebase.js";
+import { setHeaderText, setOnlineState, openModal, closeModal, renderUI, showToast } from "./ui.js";
+import { getSmartRecipe, getSmartSuggestions } from "./ai_mock.js";
 
-const state = loadState() ?? defaultState();
+let activeTab = "inventory";
+let userId = null;
 
-// ensure new fields exist (for older saved states)
-state.settings = state.settings || {};
-if (typeof state.settings.monthlyBudget !== "number") state.settings.monthlyBudget = 200;
-if (typeof state.settings.shoppingTripBudget !== "number") state.settings.shoppingTripBudget = 50;
+let inventory = [];
+let shoppingList = [];
+let historicalWaste = 0;
 
-state.inventory = state.inventory || [];
-state.shopping = state.shopping || [];
+let monthlyBudget = 0;
+let monthSpent = 0;
+let monthPurchases = [];
 
-boot();
+// NEW: shopping trip budget (for the shopping progress bar)
+let tripBudget = 50;
 
-function boot() {
-  document.getElementById("lang-select").value = state.lang;
-  setHeader(state.lang);
-  setActiveTab(state.activeTab);
-  setStatus(state.lang, "initializing");
+let lang = detectDefaultLang();
+let t = translations[lang];
 
-  document.getElementById("nav-inventory").onclick = () => go("inventory");
-  document.getElementById("nav-shopping").onclick = () => go("shopping");
-  document.getElementById("nav-planner").onclick = () => go("planner");
-  document.getElementById("nav-reports").onclick = () => go("reports"); // reports == dashboard now
+const { db, auth } = initFirebase();
 
-  document.getElementById("lang-select").onchange = (e) => {
-    state.lang = e.target.value;
-    persist();
-    setHeader(state.lang);
-    render();
-  };
+// Initial Setup
+setHeaderText(t);
+setupLanguageDropdown();
 
-  document.getElementById("modal-container").onclick = (e) => {
-    if (e.target.id === "modal-container") closeModal();
-  };
+// Navigation Setup
+["inventory", "shopping", "planner", "reports"].forEach(id => {
+  const el = document.getElementById(`nav-${id}`);
+  if (el) el.onclick = () => switchTab(id);
+});
 
-  render();
-  setStatus(state.lang, "ready");
-}
+document.getElementById("btn-cancel").onclick = closeModal;
 
-function go(tab) {
-  state.activeTab = tab;
-  persist();
-  render();
-}
+document.getElementById("item-form").onsubmit = async (e) => {
+  e.preventDefault();
 
-function persist() {
-  saveState(state);
-}
+  const type = document.getElementById("list-type").value;
+  const id = document.getElementById("item-id").value || crypto.randomUUID();
 
-function render() {
-  setHeader(state.lang);
-  setActiveTab(state.activeTab);
+  const name = document.getElementById("item-name").value.trim();
+  const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
+  const unit = document.getElementById("item-unit").value.trim();
 
-  const handlers = {
-    openAdd: (listType) => {
-      openModal(
-        { lang: state.lang, mode: "add", listType, item: null },
-        (payload) => {
-          upsertItem(payload);
-          closeModal();
-          toast("Saved!");
-          render();
-        }
-      );
-    },
+  const category = (document.getElementById("item-category")?.value || "general").trim();
 
-    openEdit: (listType, id) => {
-      const item = findItem(listType, id);
-      if (!item) return;
-      openModal(
-        { lang: state.lang, mode: "edit", listType, item },
-        (payload) => {
-          upsertItem(payload);
-          closeModal();
-          toast("Updated!");
-          render();
-        }
-      );
-    },
+  const price = parseFloat(document.getElementById("inp-price")?.value || "0");
+  const safePrice = Number.isFinite(price) && price >= 0 ? price : 0;
 
-    remove: (listType, id) => {
-      const arr = listType === "inventory" ? state.inventory : state.shopping;
-      const idx = arr.findIndex(x => x.id === id);
-      if (idx >= 0) {
-        arr.splice(idx, 1);
-        persist();
-        toast("Deleted!");
-        render();
-      }
-    },
+  // NEW: shelf life days for BOTH shopping and inventory
+  const shelfLifeDays = parseInt(document.getElementById("item-shelf-life")?.value || "", 10);
+  const safeShelf = Number.isFinite(shelfLifeDays) && shelfLifeDays > 0 ? shelfLifeDays : 0;
 
-    toggleBought: (id) => {
-      const it = state.shopping.find(x => x.id === id);
-      if (!it) return;
+  if (!name) return;
 
-      // mark bought
-      it.bought = !it.bought;
-      it.boughtAtTs = it.bought ? Date.now() : null;
-
-      // if bought => MOVE INTO INVENTORY and remove from shopping
-      if (it.bought) {
-        moveShoppingToInventory(it);
-        state.shopping = state.shopping.filter(x => x.id !== id);
-        toast("Moved to inventory ✅");
-      }
-
-      persist();
-      render();
-    },
-
-    updateTripBudget: (val) => {
-      state.settings.shoppingTripBudget = Number(val || 0);
-      persist();
-      render();
-    },
-
-    resetTripBudget: () => {
-      state.settings.shoppingTripBudget = 50;
-      persist();
-      render();
-    },
-
-    resetMonthlyBudget: () => {
-      state.settings.monthlyBudget = 200;
-      persist();
-      render();
-    }
-  };
-
-  if (state.activeTab === "inventory") return renderInventory(state, handlers);
-  if (state.activeTab === "shopping") return renderShopping(state, handlers);
-  if (state.activeTab === "planner") return renderPlanner(state, handlers);
-
-  // reports tab is now Dashboard
-  if (state.activeTab === "reports") {
-    renderDashboard(state, handlers);
-    wireDashboardBudget((val) => {
-      state.settings.monthlyBudget = Number(val || 0);
-      persist();
-      render();
-    });
-    return;
-  }
-}
-
-function findItem(listType, id) {
-  const arr = listType === "inventory" ? state.inventory : state.shopping;
-  return arr.find(x => x.id === id);
-}
-
-function upsertItem(payload) {
-  const listType = payload.listType;
-  const arr = listType === "inventory" ? state.inventory : state.shopping;
-
-  const now = Date.now();
-  const isNew = !payload.id;
-
-  const base = {
-    id: payload.id ?? uid(),
-    name: payload.name,
-    category: payload.category || "general",
-    qty: Number(payload.qty || 1),
-    unit: payload.unit || "",
-    priceTotal: Number(payload.priceTotal || 0),
-    shelfLifeDays: Number(payload.shelfLifeDays || 0),
-  };
-
-  if (listType === "inventory") {
-    const expiryTs = base.shelfLifeDays > 0 ? (now + base.shelfLifeDays * 24 * 60 * 60 * 1000) : null;
-    const prev = findItem("inventory", base.id);
-
-    const item = {
-      ...base,
-      expiryTs,
-      createdAtTs: isNew ? now : (prev?.createdAtTs ?? now),
-    };
-
-    const idx = arr.findIndex(x => x.id === item.id);
-    if (idx >= 0) arr[idx] = item; else arr.push(item);
-    persist();
-    return;
+  if (type === "inventory") {
+    const expiry = safeShelf > 0 ? addDaysISO(safeShelf) : "";
+    upsert(inventory, { id, name, quantity, unit, category, shelfLifeDays: safeShelf, expiry, price: safePrice });
+  } else {
+    upsert(shoppingList, { id, name, quantity, unit, category, shelfLifeDays: safeShelf, price: safePrice });
   }
 
-  if (listType === "shopping") {
-    const prev = findItem("shopping", base.id);
-    const item = {
-      ...base,
-      bought: prev?.bought ?? false,
-      createdAtTs: isNew ? now : (prev?.createdAtTs ?? now),
-      boughtAtTs: prev?.boughtAtTs ?? null,
-    };
+  closeModal();
+  draw();
+  await persist();
+};
 
-    const idx = arr.findIndex(x => x.id === item.id);
-    if (idx >= 0) arr[idx] = item; else arr.push(item);
-    persist();
-  }
+function addDaysISO(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
 }
 
-function moveShoppingToInventory(shopItem) {
-  const now = Date.now();
-  const shelf = Number(shopItem.shelfLifeDays || 0);
-  const expiryTs = shelf > 0 ? (now + shelf * 24 * 60 * 60 * 1000) : null;
+function upsert(arr, item) {
+  const idx = arr.findIndex(x => x.id === item.id);
+  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
+  else arr.push(item);
+}
 
-  state.inventory.push({
-    id: uid(),
-    name: shopItem.name,
-    category: shopItem.category || "general",
-    qty: Number(shopItem.qty || 1),
-    unit: shopItem.unit || "",
-    priceTotal: Number(shopItem.priceTotal || 0),
-    shelfLifeDays: shelf,
-    expiryTs,
-    createdAtTs: now,
-    source: "shopping"
+function switchTab(tab) {
+  activeTab = tab;
+  draw();
+}
+
+function draw() {
+  renderUI({
+    t, lang, activeTab, inventory, shoppingList, historicalWaste,
+    monthlyBudget, monthSpent, monthPurchases,
+    tripBudget,
+
+    onAdd: (type) => openModal(t, type, null),
+
+    onMove: moveItem, // will be "BOUGHT" from shopping
+    onDelete: deleteItem,
+    onEmpty: emptyItem,
+
+    onSuggest: showSuggestions,
+    onRecipe: showRecipe,
+
+    onSaveBudget: saveBudget,
+    onResetSpent: resetSpent,
+
+    onSaveTripBudget: saveTripBudget,
+    onResetTripBudget: resetTripBudget,
+
+    onClearAllInventory: clearAllInventory,
+    onClearAllShopping: clearAllShopping,
+    onResetAll: resetAll
   });
+}
+
+function processWaste() {
+  const now = new Date();
+  const before = inventory.length;
+
+  inventory = inventory.filter(i => {
+    if (i.expiry && i.expiry !== "PENDING" && new Date(i.expiry) < now) {
+      historicalWaste++;
+      return false;
+    }
+    return true;
+  });
+
+  if (inventory.length !== before) persist();
+}
+
+async function persist() {
+  if (!userId) return;
+  await saveData({
+    db, userId,
+    inventory, shoppingList, historicalWaste,
+    monthlyBudget, monthSpent, monthPurchases,
+    tripBudget
+  });
+}
+
+async function saveBudget(val) {
+  const n = Number(val || 0);
+  monthlyBudget = Number.isFinite(n) && n >= 0 ? n : 0;
+  draw();
+  await persist();
+  showToast("✅ Budget saved", "success");
+}
+
+async function saveTripBudget(val) {
+  const n = Number(val || 0);
+  tripBudget = Number.isFinite(n) && n >= 0 ? n : 0;
+  draw();
+  await persist();
+  showToast("✅ Trip budget saved", "success");
+}
+
+async function resetTripBudget() {
+  tripBudget = 50;
+  draw();
+  await persist();
+  showToast("Trip budget reset", "warn");
+}
+
+async function resetSpent() {
+  if (!confirm("Reset monthly spending to €0.00?")) return;
+  monthSpent = 0;
+  monthPurchases = [];
+  draw();
+  await persist();
+  showToast("Monthly spending reset", "warn");
+}
+
+async function resetAll() {
+  if (!confirm("Reset ALL data? This will clear inventory, shopping list, budget and stats.")) return;
+  inventory = []; shoppingList = []; historicalWaste = 0;
+  monthlyBudget = 0; monthSpent = 0; monthPurchases = [];
+  tripBudget = 50;
+  draw();
+  await persist();
+  showToast("All data reset", "warn");
+}
+
+// BOUGHT / MOVE
+async function moveItem(id, from) {
+  if (from === "shopping") {
+    const i = shoppingList.find(x => x.id === id);
+    if (!i) return;
+
+    shoppingList = shoppingList.filter(x => x.id !== id);
+
+    // expiry from shelfLifeDays (no more PENDING)
+    const expiry = i.shelfLifeDays && i.shelfLifeDays > 0 ? addDaysISO(i.shelfLifeDays) : "";
+
+    inventory.push({ ...i, expiry });
+
+    // spending
+    const cost = Number.isFinite(Number(i.price)) ? Number(i.price) : 0;
+    monthSpent = (Number(monthSpent) || 0) + cost;
+
+    // track purchases with category for donut chart
+    monthPurchases.push({
+      id: crypto.randomUUID(),
+      name: i.name,
+      category: i.category || "general",
+      cost,
+      ts: Date.now()
+    });
+
+    draw();
+    await persist();
+    showToast("✅ Bought → moved to inventory", "success");
+    return;
+  }
+
+  // move back to shopping (optional)
+  const i = inventory.find(x => x.id === id);
+  if (!i) return;
+
+  inventory = inventory.filter(x => x.id !== id);
+  shoppingList.push({ ...i, price: Number(i.price || 0) });
+
+  draw();
+  await persist();
+}
+
+async function emptyItem(id) {
+  const i = inventory.find(x => x.id === id);
+  if (!i) return;
+
+  if (!confirm(`Mark "${i.name}" as empty?`)) return;
+
+  inventory = inventory.filter(x => x.id !== id);
+  historicalWaste += 1;
+  draw();
+
+  await persist();
+  showToast("Item removed", "warn");
+}
+
+async function deleteItem(type, id) {
+  if (!confirm("Delete this item?")) return;
+  if (type === "inventory") inventory = inventory.filter(i => i.id !== id);
+  else shoppingList = shoppingList.filter(i => i.id !== id);
+
+  draw();
+  await persist();
+  showToast("Removed", "warn");
+}
+
+async function clearAllInventory() {
+  if (!confirm("Clear ALL inventory?")) return;
+  inventory = [];
+  draw();
+  await persist();
+}
+
+async function clearAllShopping() {
+  if (!confirm("Clear ALL shopping?")) return;
+  shoppingList = [];
+  draw();
+  await persist();
+}
+
+function showSuggestions() {
+  const out = document.getElementById("ai-out");
+  if (!out) return;
+  const names = shoppingList.map(i => i.name);
+  out.innerText = getSmartSuggestions(lang, names);
+}
+
+function showRecipe() {
+  const out = document.getElementById("ai-recipe-out");
+  if (!out) return;
+  const names = inventory.map(i => i.name);
+  out.innerText = getSmartRecipe(lang, names);
+}
+
+// Auth & Sync
+signInAndSync({
+  db, auth,
+  onReady: (uid) => {
+    userId = uid;
+    setOnlineState(t);
+  },
+  onData: (d) => {
+    inventory = d.inventory || [];
+    shoppingList = d.shoppingList || [];
+    historicalWaste = d.historicalWaste || 0;
+
+    monthlyBudget = Number(d.monthlyBudget || 0);
+    monthSpent = Number(d.monthSpent || 0);
+    monthPurchases = Array.isArray(d.monthPurchases) ? d.monthPurchases : [];
+
+    tripBudget = Number(d.tripBudget || 50);
+
+    processWaste();
+    draw();
+  }
+});
+
+function setupLanguageDropdown() {
+  const sel = document.getElementById("lang-select");
+  if (!sel) return;
+  sel.value = lang;
+  sel.onchange = () => {
+    lang = sel.value;
+    setLang(lang);
+    t = translations[lang];
+    setHeaderText(t);
+    setOnlineState(t);
+    draw();
+  };
 }
