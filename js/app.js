@@ -20,13 +20,16 @@ let t = translations[lang];
 
 const { db, auth } = initFirebase();
 
+// Initial Setup
 setHeaderText(t);
 setupLanguageDropdown();
 
-document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
-document.getElementById("nav-shopping").onclick = () => switchTab("shopping");
-document.getElementById("nav-planner").onclick = () => switchTab("planner");
-document.getElementById("nav-reports").onclick = () => switchTab("reports");
+// Navigation Setup
+const navs = ["inventory", "shopping", "planner", "reports"];
+navs.forEach(id => {
+  const el = document.getElementById(`nav-${id}`);
+  if (el) el.onclick = () => switchTab(id);
+});
 
 document.getElementById("btn-cancel").onclick = closeModal;
 
@@ -55,9 +58,9 @@ document.getElementById("item-form").onsubmit = async (e) => {
     upsert(shoppingList, { id, name, quantity, unit, price: safePrice });
   }
 
-  await persist();
   closeModal();
-  draw();
+  draw(); // Draw immediately for speed
+  await persist();
 };
 
 function upsert(arr, item) {
@@ -103,6 +106,7 @@ function processWaste() {
 }
 
 async function persist() {
+  if (!userId) return;
   await saveData({
     db, userId, inventory, shoppingList, historicalWaste,
     monthlyBudget, monthSpent, monthPurchases
@@ -112,27 +116,27 @@ async function persist() {
 async function saveBudget(val) {
   const n = Number(val || 0);
   monthlyBudget = Number.isFinite(n) && n >= 0 ? n : 0;
+  draw();
   await persist();
   showToast("✅ Budget saved", "success");
-  draw();
 }
 
 async function resetSpent() {
   if (!confirm("Reset monthly spending to €0.00?")) return;
   monthSpent = 0;
   monthPurchases = [];
+  draw();
   await persist();
   showToast("Monthly spending reset", "warn");
-  draw();
 }
 
 async function resetAll() {
   if (!confirm("Reset ALL data? This will clear inventory, shopping list, budget and stats.")) return;
   inventory = []; shoppingList = []; historicalWaste = 0;
   monthlyBudget = 0; monthSpent = 0; monthPurchases = [];
+  draw();
   await persist();
   showToast("All data reset", "warn");
-  draw();
 }
 
 async function moveItem(id, from) {
@@ -145,67 +149,74 @@ async function moveItem(id, from) {
     const cost = Number.isFinite(price) ? price : 0;
     monthSpent = (Number(monthSpent) || 0) + cost;
     monthPurchases.push({ id: crypto.randomUUID(), name: i.name, cost, ts: Date.now() });
+    
+    draw(); 
     await persist();
-    showToast("Added to inventory + tracked spending", "success");
-    draw();
+    showToast("Added to inventory", "success");
     return;
   }
   const i = inventory.find(x => x.id === id);
   if (!i) return;
   inventory = inventory.filter(x => x.id !== id);
-  shoppingList.push({ id: i.id, name: i.name, quantity: i.quantity, unit: i.unit, price: Number(i.price || 0) });
-  await persist();
+  shoppingList.push({ ...i, price: Number(i.price || 0) });
   draw();
+  await persist();
 }
 
 async function emptyItem(id) {
   const i = inventory.find(x => x.id === id);
   if (!i) return;
-  if (!confirm(`Mark "${i.name}" as empty? (It will be removed)`)) return;
+  
+  if (!confirm(`Mark "${i.name}" as empty?`)) return;
+
+  // Optimistic UI: remove from local array and draw immediately
   inventory = inventory.filter(x => x.id !== id);
   historicalWaste += 1;
+  draw(); 
+  
   await persist();
   showToast("Item removed", "warn");
-  draw();
 }
 
 async function deleteItem(type, id) {
   if (!confirm("Delete this item?")) return;
   if (type === "inventory") inventory = inventory.filter(i => i.id !== id);
   else shoppingList = shoppingList.filter(i => i.id !== id);
+  
+  draw();
   await persist();
   showToast("Removed", "warn");
-  draw();
 }
 
 async function clearAllInventory() {
-  if (!confirm("Are you sure you want to clear ALL inventory items?")) return;
+  if (!confirm("Clear ALL inventory?")) return;
   inventory = [];
-  await persist();
-  showToast("Inventory cleared", "warn");
   draw();
+  await persist();
 }
 
 async function clearAllShopping() {
-  if (!confirm("Are you sure you want to clear ALL shopping list items?")) return;
+  if (!confirm("Clear ALL shopping?")) return;
   shoppingList = [];
-  await persist();
-  showToast("Shopping list cleared", "warn");
   draw();
+  await persist();
 }
 
 function showSuggestions() {
   const out = document.getElementById("ai-out");
+  if (!out) return;
   const names = shoppingList.map(i => i.name);
   out.innerText = getSmartSuggestions(lang, names);
 }
 
 function showRecipe() {
   const out = document.getElementById("ai-recipe-out");
+  if (!out) return;
   const names = inventory.map(i => i.name);
   out.innerText = getSmartRecipe(lang, names);
 }
 
+// Auth & Sync
 signInAndSync({
   db, auth,
   onReady: (uid) => {
