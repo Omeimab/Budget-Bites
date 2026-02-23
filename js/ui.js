@@ -1,3 +1,5 @@
+// ui.js (FINAL) — Trip Budget removed, only Monthly Budget shown on Shopping tab
+
 export function setHeaderText(t) {
   document.getElementById("app-subtitle").innerText = t.subtitle;
   document.getElementById("user-info").innerText = t.initializing;
@@ -105,7 +107,6 @@ export function renderUI({
   monthlyBudget,
   monthSpent,
   monthPurchases,
-  tripBudget,
 
   onAdd,
   onMove,
@@ -115,9 +116,6 @@ export function renderUI({
   onRecipe,
   onSaveBudget,
   onResetSpent,
-
-  onSaveTripBudget,
-  onResetTripBudget,
 
   onClearAllInventory,
   onClearAllShopping,
@@ -195,67 +193,6 @@ export function renderUI({
     </div>
   `;
 
-  const tripBudgetWidget = () => {
-    const planned = sum(shoppingList.map(i => Number(i.price || 0)));
-    const b = Number(tripBudget || 0);
-    const left = b - planned;
-    const ratio = b > 0 ? planned / b : 0;
-
-    const status = ratio >= 1 ? "over" : ratio >= 0.85 ? "warn" : "ok";
-    const pct = b > 0 ? Math.min(120, Math.round(ratio * 100)) : 0;
-
-    const barClass =
-      status === "over" ? "bg-rose-500" : status === "warn" ? "bg-amber-400" : "bg-emerald-500";
-
-    const msg =
-      status === "over" ? t.budgetOver : status === "warn" ? t.budgetWarn : t.budgetOk;
-
-    return `
-      <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-        <div class="flex items-center justify-between">
-          <p class="text-xs font-black text-slate-500 uppercase tracking-widest">${t.tripBudgetShort}</p>
-          <p class="text-sm font-black text-slate-700">${formatMoney(planned)} <span class="text-slate-400 font-semibold">${t.plannedSpend}</span></p>
-        </div>
-
-        <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-          <div class="h-2 ${barClass}" style="width:${pct}%; transition: width .25s ease;"></div>
-        </div>
-
-        <div class="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
-          <span>${pct}%</span>
-          <span class="${left < 0 ? "text-rose-600 font-black" : "text-emerald-600 font-black"}">
-            ${left >= 0 ? `${formatMoney(left)} ${t.remaining}` : `${formatMoney(Math.abs(left))} ${t.budgetOver}`}
-          </span>
-        </div>
-
-        <div class="mt-3 text-xs font-bold ${status === "over" ? "text-rose-700 bg-rose-50 border-rose-100" : status === "warn" ? "text-amber-800 bg-amber-50 border-amber-100" : "text-emerald-700 bg-emerald-50 border-emerald-100"} border rounded-lg px-3 py-2">
-          ${msg}
-        </div>
-
-        <div class="mt-4 flex gap-3 items-end">
-          <div class="flex-1">
-            <p class="text-sm font-bold mb-1">${t.setTripBudget}</p>
-            <input id="inp-trip" type="number" min="0" step="1"
-              class="w-full border rounded-lg p-3"
-              placeholder="e.g. 50"
-              value="${b > 0 ? String(b) : ""}"
-            />
-          </div>
-          <button id="btn-save-trip"
-            class="bg-slate-900 text-white px-6 py-3 rounded-xl font-black shadow-md hover:bg-slate-800">
-            ${t.save}
-          </button>
-        </div>
-
-        <div class="mt-3">
-          <button id="btn-reset-trip" class="text-xs text-slate-500 font-bold hover:underline">
-            ${t.resetTripBudget}
-          </button>
-        </div>
-      </div>
-    `;
-  };
-
   // INVENTORY
   if (activeTab === "inventory") {
     root.innerHTML = `
@@ -309,7 +246,7 @@ export function renderUI({
     return;
   }
 
-  // SHOPPING
+  // SHOPPING (ONLY monthly budget)
   if (activeTab === "shopping") {
     root.innerHTML = `
       <div class="card">
@@ -325,8 +262,7 @@ export function renderUI({
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          ${tripBudgetWidget()}
+        <div class="mt-2">
           ${budgetWidget()}
         </div>
 
@@ -376,12 +312,10 @@ export function renderUI({
     root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("shopping", btn.dataset.del));
     document.getElementById("btn-suggest").onclick = () => onSuggest();
 
-    document.getElementById("btn-save-budget").onclick = () => onSaveBudget(document.getElementById("inp-budget").value);
+    document.getElementById("btn-save-budget").onclick = () =>
+      onSaveBudget(document.getElementById("inp-budget").value);
     document.getElementById("btn-reset-month").onclick = () => onResetSpent();
     document.getElementById("btn-reset-all").onclick = () => onResetAll();
-
-    document.getElementById("btn-save-trip").onclick = () => onSaveTripBudget(document.getElementById("inp-trip").value);
-    document.getElementById("btn-reset-trip").onclick = () => onResetTripBudget();
 
     return;
   }
@@ -472,7 +406,6 @@ export function renderUI({
 }
 
 /* helpers */
-function sum(arr) { return arr.reduce((a,b)=>a+Number(b||0),0); }
 function formatMoney(v) { const n = Number(v || 0); return `€${n.toFixed(2)}`; }
 
 function escapeHtml(s) {
@@ -573,5 +506,4 @@ function donutSvg(map) {
       <text x="${cx}" y="${cy+14}" text-anchor="middle" dominant-baseline="middle" font-size="16" fill="#111827" font-weight="900">€${total.toFixed(0)}</text>
     </svg>
   `;
-  //hello
 }
