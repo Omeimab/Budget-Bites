@@ -11,7 +11,8 @@ export function setHeaderText(t) {
 
 export function setOnlineState(t) {
   document.getElementById("user-info").textContent = t.active;
-  document.getElementById("sync-spinner").style.display = "none";
+  const spinner = document.getElementById("sync-spinner");
+  if (spinner) spinner.style.display = "none";
 }
 
 export function setActiveTab(activeTab) {
@@ -27,8 +28,7 @@ export function showToast(message, type = "success") {
   if (!container) return;
 
   const el = document.createElement("div");
-  const base =
-    "px-4 py-3 rounded-xl shadow-lg text-sm font-bold border bg-white flex items-center gap-2";
+  const base = "px-4 py-3 rounded-xl shadow-lg text-sm font-bold border bg-white flex items-center gap-2";
   const variant =
     type === "error"
       ? "border-rose-200 text-rose-700"
@@ -36,7 +36,7 @@ export function showToast(message, type = "success") {
       ? "border-amber-200 text-amber-800"
       : "border-emerald-200 text-emerald-700";
 
-  el.className = ${base} ${variant};
+  el.className = `${base} ${variant}`;
   el.textContent = message;
 
   container.appendChild(el);
@@ -65,7 +65,6 @@ export function openModal(t, type, item) {
   document.getElementById("lbl-unit").innerText = t.unit;
   document.getElementById("lbl-expiry").innerText = t.expiry_logic;
 
-  // Price label: explicitly total
   const lblPrice = document.getElementById("lbl-price");
   if (lblPrice) lblPrice.innerText = t.price_total || "Total Price (€)";
 
@@ -113,7 +112,6 @@ export function renderUI({
   const budget = Number(monthlyBudget || 0);
   const remaining = budget > 0 ? budget - spent : 0;
   const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
-
   const overBy = budget > 0 ? Math.max(0, spent - budget) : 0;
 
   const budgetWidget = () => `
@@ -133,9 +131,9 @@ export function renderUI({
           ${
             budget > 0
               ? (remaining >= 0
-                  ? ${formatMoney(remaining)} remaining
-                  : ${formatMoney(overBy)} over budget)
-              : Set a budget to track remaining
+                  ? `${formatMoney(remaining)} remaining`
+                  : `${formatMoney(overBy)} over budget`)
+              : "Set a budget to track remaining"
           }
         </span>
       </div>
@@ -226,7 +224,7 @@ export function renderUI({
                   <button data-del="${i.id}" class="text-xs text-red-400 font-bold uppercase tracking-tighter">X</button>
                 </div>
               </div>
-            ).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>
+            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`
           }
         </div>
       </div>
@@ -268,7 +266,7 @@ export function renderUI({
                     ${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})
                   </p>
                   <p class="text-xs text-slate-500 font-semibold">
-                    ${i.price != null && i.price !== "" ? Total: ${formatMoney(i.price)} : "No price yet"}
+                    ${i.price != null && i.price !== "" ? `Total: ${formatMoney(i.price)}` : "No price yet"}
                   </p>
                 </div>
 
@@ -281,7 +279,7 @@ export function renderUI({
                   </button>
                 </div>
               </div>
-            ).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>
+            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`
           }
         </div>
 
@@ -299,7 +297,6 @@ export function renderUI({
 
     root.querySelectorAll("[data-move]").forEach(btn => btn.onclick = () => onMove(btn.dataset.move, "shopping"));
     root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("shopping", btn.dataset.del));
-
     document.getElementById("btn-suggest").onclick = () => onSuggest();
 
     document.getElementById("btn-save-budget").onclick = () => {
@@ -309,7 +306,6 @@ export function renderUI({
 
     document.getElementById("btn-reset-month").onclick = () => onResetSpent();
     document.getElementById("btn-reset-all").onclick = () => onResetAll();
-
     return;
   }
 
@@ -329,7 +325,7 @@ export function renderUI({
     return;
   }
 
-  // DASHBOARD (also show top 3 purchases this month)
+  // DASHBOARD
   const purchases = Array.isArray(monthPurchases) ? monthPurchases : [];
   const top3 = purchases
     .slice()
@@ -356,7 +352,7 @@ export function renderUI({
       <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Top spending (this month)</p>
       ${
         top3.length === 0
-          ? <p class="text-sm text-slate-400 italic">No purchases tracked yet.</p>
+          ? `<p class="text-sm text-slate-400 italic">No purchases tracked yet.</p>`
           : `
             <div class="space-y-2">
               ${top3.map(p => `
@@ -382,7 +378,7 @@ export function renderUI({
 
 function formatMoney(v) {
   const n = Number(v || 0);
-  return €${n.toFixed(2)};
+  return `€${n.toFixed(2)}`;
 }
 
 function escapeHtml(s) {
