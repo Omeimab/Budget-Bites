@@ -1,407 +1,306 @@
-export function setHeaderText(t) {
-  document.getElementById("app-subtitle").innerText = t.subtitle;
-  document.getElementById("user-info").innerText = t.connecting;
-  document.getElementById("loading-message").innerText = t.loading;
+import { translations, detectDefaultLang, setLang } from "./i18n.js";
+import { initFirebase, signInAndSync, saveData } from "./firebase.js";
+import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
+import { getSmartRecipe, getSmartSuggestions } from "./ai_mock.js";
 
-  document.getElementById("nav-inventory").innerText = t.nav_inv;
-  document.getElementById("nav-shopping").innerText = t.nav_shop;
-  document.getElementById("nav-planner").innerText = t.nav_plan;
-  document.getElementById("nav-reports").innerText = t.nav_dash;
-}
+let activeTab = "inventory";
+let userId = null;
 
-export function setOnlineState(t) {
-  document.getElementById("user-info").textContent = t.active;
-  document.getElementById("sync-spinner").style.display = "none";
-}
+let inventory = [];
+let shoppingList = [];
+let historicalWaste = 0;
 
-export function setActiveTab(activeTab) {
-  document.getElementById("nav-inventory").classList.toggle("active", activeTab === "inventory");
-  document.getElementById("nav-shopping").classList.toggle("active", activeTab === "shopping");
-  document.getElementById("nav-planner").classList.toggle("active", activeTab === "planner");
-  document.getElementById("nav-reports").classList.toggle("active", activeTab === "reports");
-}
+let monthlyBudget = 0;
+let monthSpent = 0;
 
-// ---------- Toast ----------
-export function showToast(message, type = "success") {
-  const container = document.getElementById("toast-container");
-  if (!container) return;
+let lang = detectDefaultLang();
+let t = translations[lang];
 
-  const el = document.createElement("div");
-  el.className =
-    "px-4 py-3 rounded-xl shadow-lg text-sm font-bold border " +
-    (type === "error"
-      ? "bg-rose-50 text-rose-700 border-rose-200"
-      : type === "warn"
-      ? "bg-amber-50 text-amber-800 border-amber-200"
-      : "bg-emerald-50 text-emerald-800 border-emerald-200");
+const { db, auth } = initFirebase();
 
-  el.textContent = message;
-  container.appendChild(el);
+// ---------- init UI ----------
+setHeaderText(t);
+setupLanguageDropdown();
 
-  setTimeout(() => {
-    el.style.opacity = "0";
-    el.style.transition = "opacity 0.25s ease";
-    setTimeout(() => el.remove(), 250);
-  }, 1800);
-}
+document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
+document.getElementById("nav-shopping").onclick = () => switchTab("shopping");
+document.getElementById("nav-planner").onclick = () => switchTab("planner");
+document.getElementById("nav-reports").onclick = () => switchTab("reports");
 
-export function openModal(t, type, item) {
-  const form = document.getElementById("item-form");
-  form.reset();
+document.getElementById("btn-cancel").onclick = closeModal;
 
-  document.getElementById("list-type").value = type;
-  document.getElementById("item-id").value = item ? item.id : "";
+// ---------- modal submit ----------
+document.getElementById("item-form").onsubmit = async (e) => {
+  e.preventDefault();
 
-  document.getElementById("modal-title").innerText = item ? t.edit : t.add;
-  document.getElementById("lbl-name").innerText = t.name;
-  document.getElementById("lbl-qty").innerText = t.qty;
-  document.getElementById("lbl-unit").innerText = t.unit;
-  document.getElementById("lbl-expiry").innerText = t.expiry_logic;
+  const type = document.getElementById("list-type").value;
+  const id = document.getElementById("item-id").value || crypto.randomUUID();
 
-  // price label
-  const lblPrice = document.getElementById("lbl-price");
-  if (lblPrice) lblPrice.innerText = "Total price (€)";
+  const name = document.getElementById("item-name").value.trim();
+  const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
+  const unit = document.getElementById("item-unit").value.trim();
 
-  const inpPrice = document.getElementById("inp-price");
-  if (inpPrice) inpPrice.value = item?.price ?? "";
+  // total price (not per unit)
+  const price = parseFloat(document.getElementById("inp-price")?.value || "0");
 
-  // category
-  const inpCat = document.getElementById("inp-category");
-  if (inpCat) inpCat.value = item?.category ?? "";
+  // category (optional)
+  const category = (document.getElementById("inp-category")?.value || "").trim();
 
-  document.getElementById("item-shelf-life").placeholder = t.expiry_placeholder;
-  document.getElementById("btn-save").innerText = t.save;
-  document.getElementById("btn-cancel").innerText = t.cancel;
+  if (!name) return;
 
-  document.getElementById("expiry-field").classList.toggle("hidden", type !== "inventory");
-  document.getElementById("modal-container").classList.replace("hidden", "flex");
-}
+  if (type === "inventory") {
+    const days = parseInt(document.getElementById("item-shelf-life").value || "", 10);
+    let expiry = "";
 
-export function closeModal() {
-  document.getElementById("modal-container").classList.replace("flex", "hidden");
-}
+    if (Number.isFinite(days) && days > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      expiry = d.toISOString().split("T")[0];
+    }
 
-// ---------- helpers ----------
-function formatMoney(v) {
-  const n = Number(v || 0);
-  return `€${n.toFixed(2)}`;
-}
-
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function spendByCategory(shoppingList) {
-  const map = {};
-  for (const it of shoppingList) {
-    const cat = (it.category || "other").trim() || "other";
-    const price = Number(it.price || 0);
-    const qty = Number(it.quantity || 1);
-    const total = (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
-    map[cat] = (map[cat] || 0) + total;
+    upsert(inventory, {
+      id,
+      name,
+      quantity: Number.isFinite(quantity) ? quantity : 1,
+      unit,
+      expiry,
+      price: Number.isFinite(price) ? price : 0,
+      category
+    });
+  } else {
+    upsert(shoppingList, {
+      id,
+      name,
+      quantity: Number.isFinite(quantity) ? quantity : 1,
+      unit,
+      price: Number.isFinite(price) ? price : 0,
+      category
+    });
   }
-  return map;
+
+  await persist();
+  closeModal();
+  draw();
+};
+
+function upsert(arr, item) {
+  const idx = arr.findIndex((x) => x.id === item.id);
+  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
+  else arr.push(item);
 }
 
-export function renderUI({
-  t,
-  lang,
-  activeTab,
-  inventory,
-  shoppingList,
-  historicalWaste,
-  monthlyBudget,
-  monthSpent,
+function switchTab(tab) {
+  activeTab = tab;
+  draw();
+}
 
-  onAdd,
-  onMove,
-  onDelete,
+function draw() {
+  renderUI({
+    t,
+    lang,
+    activeTab,
+    inventory,
+    shoppingList,
+    historicalWaste,
+    monthlyBudget,
+    monthSpent,
 
-  onDeleteShopping,
-  onClearInventory,
-  onClearShopping,
-  onResetAll,
+    onAdd: (type) => openModal(t, type, null),
 
-  onSuggest,
-  onRecipe,
-  onSaveBudget,
-  onResetSpent
-}) {
-  const root = document.getElementById("content-area");
-  setActiveTab(activeTab);
+    onMove: moveItem,
+    onDelete: deleteItem,
 
-  const spent = Number(monthSpent || 0);
-  const budget = Number(monthlyBudget || 0);
-  const remainingRaw = budget - spent;
-  const remaining = Math.max(0, remainingRaw);
-  const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
-  const isOver = budget > 0 && spent > budget;
+    // NEW
+    onDeleteShopping: deleteShoppingItem,
+    onClearInventory: clearInventory,
+    onClearShopping: clearShopping,
+    onResetAll: resetAll,
 
-  const budgetWidget = () => `
-    <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-      <div class="flex items-center justify-between">
-        <p class="text-xs font-black text-slate-500 uppercase tracking-widest">Monthly Budget</p>
-        <p class="text-sm font-black text-slate-700">${formatMoney(spent)} <span class="text-slate-400 font-semibold">spent</span></p>
-      </div>
+    onSuggest: showSuggestions,
+    onRecipe: showRecipe,
 
-      <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-        <div class="h-2 ${isOver ? "bg-rose-500" : "bg-emerald-500"}" style="width:${pct}%"></div>
-      </div>
+    onSaveBudget: saveBudget,
+    onResetSpent: resetSpent
+  });
+}
 
-      <div class="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
-        <span>${pct}% used</span>
-        <span>${budget > 0 ? `${formatMoney(remaining)} remaining` : `Set a budget to track remaining`}</span>
-      </div>
+// auto-waste processing (expired items)
+function processWaste() {
+  const now = new Date();
+  const before = inventory.length;
 
-      ${budget > 0 && remaining <= budget * 0.1 && !isOver ? `
-        <div class="mt-3 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-          ⚠️ Watch out: you're close to your monthly budget.
-        </div>
-      ` : ""}
+  inventory = inventory.filter((i) => {
+    if (i.expiry && i.expiry !== "PENDING" && new Date(i.expiry) < now) {
+      historicalWaste++;
+      return false;
+    }
+    return true;
+  });
 
-      ${isOver ? `
-        <div class="mt-3 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-          ⛔ You exceeded your monthly budget by ${formatMoney(Math.abs(remainingRaw))}.
-        </div>
-      ` : ""}
+  if (inventory.length !== before) persist();
+}
 
-      <div class="mt-4 flex gap-3 items-center">
-        <div class="flex-1">
-          <p class="text-sm font-bold mb-1">Set monthly budget (€)</p>
-          <input id="inp-budget" type="number" min="0" step="1"
-            class="w-full border rounded-lg p-3"
-            placeholder="e.g. 300"
-            value="${budget > 0 ? String(budget) : ""}"
-          />
-        </div>
-        <button id="btn-save-budget"
-          class="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black shadow-md hover:bg-emerald-600">
-          Save
-        </button>
-      </div>
+async function persist() {
+  await saveData({
+    db,
+    userId,
+    inventory,
+    shoppingList,
+    historicalWaste,
+    monthlyBudget,
+    monthSpent
+  });
+}
 
-      <div class="mt-3 flex items-center justify-between gap-3">
-        <button id="btn-reset-month" class="text-xs text-red-500 font-bold hover:underline">
-          Reset monthly spending
-        </button>
+// ---------- budget ----------
+async function saveBudget(val) {
+  const n = Number(val || 0);
+  monthlyBudget = Number.isFinite(n) && n >= 0 ? n : 0;
+  await persist();
+  draw({ toast: "budget_saved" });
+}
 
-        <button id="btn-reset-all" class="text-xs text-slate-600 font-bold hover:underline">
-          Reset EVERYTHING
-        </button>
-      </div>
+async function resetSpent() {
+  if (!confirm("Reset monthly spending to €0.00?")) return;
+  monthSpent = 0;
+  await persist();
+  draw({ toast: "spent_reset" });
+}
 
-      <p class="mt-2 text-xs text-slate-500">
-        Tip: Add prices to Shopping List items and click BOUGHT to track spending automatically.
-      </p>
-    </div>
-  `;
+// ---------- workflows ----------
+async function moveItem(id, from) {
+  // shopping → inventory (bought)
+  if (from === "shopping") {
+    const i = shoppingList.find((x) => x.id === id);
+    if (!i) return;
 
-  // ---------- INVENTORY ----------
-  if (activeTab === "inventory") {
-    root.innerHTML = `
-      <div class="card">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-gray-800">${t.nav_inv}</h2>
-          <div class="flex gap-3">
-            <button id="btn-clear-inv" class="bg-slate-100 text-slate-700 px-5 py-2 rounded-full font-bold hover:bg-slate-200">
-              Clear all
-            </button>
-            <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600">
-              + ${t.add}
-            </button>
-          </div>
-        </div>
+    shoppingList = shoppingList.filter((x) => x.id !== id);
 
-        <div class="space-y-3">
-          ${
-            inventory.map(i => `
-              <div class="flex justify-between p-4 border rounded-xl items-center bg-white shadow-sm hover:border-emerald-200 transition-all">
-                <div>
-                  <p class="font-bold text-gray-800">${escapeHtml(i.name)}</p>
-                  <p class="text-xs text-gray-400 font-semibold">
-                    ${i.quantity} ${escapeHtml(i.unit || "")}
-                    • ${escapeHtml(i.expiry || "PENDING")}
-                    ${i.price != null && i.price !== "" ? ` • ${formatMoney(i.price)}` : ""}
-                    ${i.category ? ` • ${escapeHtml(i.category)}` : ""}
-                  </p>
-                </div>
-                <div class="flex gap-3">
-                  <button data-move="${i.id}" class="text-xs font-bold text-amber-600 uppercase tracking-tighter">${t.move_need}</button>
-                  <button data-del="${i.id}" class="text-xs text-red-400 font-bold uppercase tracking-tighter">X</button>
-                </div>
-              </div>
-            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>`
-          }
-        </div>
-      </div>
-    `;
+    // moved item into inventory with expiry pending
+    inventory.push({ ...i, expiry: "PENDING" });
 
-    document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
-    document.getElementById("btn-clear-inv").onclick = () => onClearInventory();
+    // spending add = total price * quantity
+    const price = Number(i.price || 0);
+    const qty = Number(i.quantity || 1);
+    const cost = (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
 
-    root.querySelectorAll("[data-move]").forEach(btn => (btn.onclick = () => onMove(btn.dataset.move, "inventory")));
-    root.querySelectorAll("[data-del]").forEach(btn => (btn.onclick = () => onDelete("inventory", btn.dataset.del)));
+    monthSpent = Number(monthSpent || 0) + cost;
+
+    await persist();
+    draw();
     return;
   }
 
-  // ---------- SHOPPING ----------
-  if (activeTab === "shopping") {
-    const byCat = spendByCategory(shoppingList);
-    const topCats = Object.entries(byCat)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
+  // inventory → shopping (need again)
+  const i = inventory.find((x) => x.id === id);
+  if (!i) return;
 
-    root.innerHTML = `
-      <div class="card">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-gray-800">${t.nav_shop}</h2>
-          <div class="flex gap-3">
-            <button id="btn-clear-shop" class="bg-slate-100 text-slate-700 px-5 py-2 rounded-full font-bold hover:bg-slate-200">
-              Clear all
-            </button>
-            <button id="btn-add-shop" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600">
-              + ${t.add}
-            </button>
-          </div>
-        </div>
+  inventory = inventory.filter((x) => x.id !== id);
+  shoppingList.push({
+    id: i.id,
+    name: i.name,
+    quantity: i.quantity,
+    unit: i.unit,
+    price: Number(i.price || 0),
+    category: i.category || ""
+  });
 
-        ${budgetWidget()}
+  await persist();
+  draw();
+}
 
-        <div class="mt-4 bg-slate-50 border border-slate-100 rounded-xl p-4">
-          <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Top spending categories (shopping list)</p>
-          ${
-            topCats.length
-              ? topCats.map(([cat, total]) => `
-                  <div class="flex items-center justify-between text-sm font-semibold text-slate-700 py-1">
-                    <span>${escapeHtml(cat)}</span>
-                    <span>${formatMoney(total)}</span>
-                  </div>
-                `).join("")
-              : `<p class="text-sm text-slate-500">Add categories + prices to see insights.</p>`
-          }
-        </div>
+// Inventory delete (with confirm)
+async function deleteItem(type, id) {
+  if (!confirm(t.delete_confirm || "Delete this item?")) return;
 
-        <div class="space-y-3 mt-6 mb-6">
-          ${
-            shoppingList.map(i => `
-              <div class="flex justify-between p-4 border rounded-xl bg-emerald-50/20 items-center border-emerald-100">
-                <div>
-                  <p class="font-bold text-gray-800">
-                    ${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})
-                  </p>
-                  <p class="text-xs text-slate-500 font-semibold">
-                    ${i.price != null && i.price !== "" ? `Total price: ${formatMoney(i.price)}` : "No price yet"}
-                    ${i.category ? ` • ${escapeHtml(i.category)}` : ""}
-                  </p>
-                </div>
+  if (type === "inventory") inventory = inventory.filter((i) => i.id !== id);
+  else shoppingList = shoppingList.filter((i) => i.id !== id);
 
-                <div class="flex items-center gap-3">
-                  <button data-delshop="${i.id}"
-                    class="text-xs font-bold text-slate-500 hover:text-red-500 uppercase tracking-tighter">
-                    Remove
-                  </button>
+  await persist();
+  draw();
+}
 
-                  <button data-move="${i.id}"
-                    class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">
-                    ${t.move_bought}
-                  </button>
-                </div>
-              </div>
-            `).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_shop}</p>`
-          }
-        </div>
+// Shopping delete single item (NO “Bought” needed)
+async function deleteShoppingItem(id) {
+  if (!confirm("Remove this item from the shopping list?")) return;
+  shoppingList = shoppingList.filter((x) => x.id !== id);
+  await persist();
+  draw();
+}
 
-        <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-100 shadow-inner">
-          <button id="btn-suggest" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-black mb-2 uppercase tracking-widest shadow-md">
-            ${t.sugg_btn}
-          </button>
-          <div id="ai-out" class="text-xs italic text-indigo-700 leading-relaxed font-medium">${t.sugg_info}</div>
-        </div>
-      </div>
-    `;
+// Clear all inventory
+async function clearInventory() {
+  if (!confirm("Are you sure you want to clear ALL inventory items?")) return;
+  inventory = [];
+  await persist();
+  draw();
+}
 
-    document.getElementById("btn-add-shop").onclick = () => onAdd("shopping");
-    document.getElementById("btn-clear-shop").onclick = () => onClearShopping();
-    document.getElementById("btn-suggest").onclick = () => onSuggest();
+// Clear all shopping list
+async function clearShopping() {
+  if (!confirm("Are you sure you want to clear ALL shopping list items?")) return;
+  shoppingList = [];
+  await persist();
+  draw();
+}
 
-    root.querySelectorAll("[data-move]").forEach(btn => (btn.onclick = () => onMove(btn.dataset.move, "shopping")));
-    root.querySelectorAll("[data-delshop]").forEach(btn => (btn.onclick = () => onDeleteShopping(btn.dataset.delshop)));
+// Reset everything
+async function resetAll() {
+  if (!confirm("Reset EVERYTHING (inventory, shopping list, budget spent, waste)?")) return;
+  inventory = [];
+  shoppingList = [];
+  historicalWaste = 0;
+  monthlyBudget = 0;
+  monthSpent = 0;
+  await persist();
+  draw();
+}
 
-    document.getElementById("btn-save-budget").onclick = () => {
-      const val = document.getElementById("inp-budget").value;
-      onSaveBudget(val);
-      showToast("Budget saved ✅", "success");
-    };
+// ---------- AI mock ----------
+function showSuggestions() {
+  const out = document.getElementById("ai-out");
+  const names = shoppingList.map((i) => i.name);
+  out.innerText = getSmartSuggestions(lang, names);
+}
 
-    document.getElementById("btn-reset-month").onclick = () => onResetSpent();
-    document.getElementById("btn-reset-all").onclick = () => onResetAll();
-    return;
+function showRecipe() {
+  const out = document.getElementById("ai-recipe-out");
+  const names = inventory.map((i) => i.name);
+  out.innerText = getSmartRecipe(lang, names);
+}
+
+// ---------- auth + sync ----------
+signInAndSync({
+  db,
+  auth,
+  onReady: (uid) => {
+    userId = uid;
+    setOnlineState(t);
+  },
+  onData: (d) => {
+    inventory = d.inventory || [];
+    shoppingList = d.shoppingList || [];
+    historicalWaste = Number(d.historicalWaste || 0);
+
+    monthlyBudget = Number(d.monthlyBudget || 0);
+    monthSpent = Number(d.monthSpent || 0);
+
+    processWaste();
+    draw();
   }
+});
 
-  // ---------- PLANNER ----------
-  if (activeTab === "planner") {
-    root.innerHTML = `
-      <div class="card text-center py-10">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">${t.nav_plan}</h2>
-        <p class="text-gray-500 mb-8 max-w-sm mx-auto font-medium">${t.recipe_info}</p>
-        <button id="btn-recipe"
-          class="bg-purple-600 text-white px-10 py-3 rounded-full font-extrabold shadow-lg shadow-purple-200 hover:scale-105 transition-transform uppercase tracking-widest text-xs">
-          ${t.recipe_btn}
-        </button>
-        <div id="ai-recipe-out"
-          class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div>
-      </div>
-    `;
-    document.getElementById("btn-recipe").onclick = () => onRecipe();
-    return;
-  }
+// ---------- language ----------
+function setupLanguageDropdown() {
+  const sel = document.getElementById("lang-select");
+  sel.value = lang;
 
-  // ---------- DASHBOARD ----------
-  const byCat = spendByCategory(shoppingList);
-  const topCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-  root.innerHTML = `
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-      <div class="card text-center bg-rose-50 border-2 border-rose-100 shadow-none">
-        <p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-2">${t.stat_waste}</p>
-        <h3 class="text-6xl font-black text-rose-900">${historicalWaste}</h3>
-      </div>
-      <div class="card text-center bg-emerald-50 border-2 border-emerald-100 shadow-none">
-        <p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">${t.stat_stock}</p>
-        <h3 class="text-6xl font-black text-emerald-900">${inventory.length}</h3>
-      </div>
-    </div>
-
-    <div class="mt-6">
-      ${budgetWidget()}
-    </div>
-
-    <div class="mt-6 card">
-      <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Where you spend the most (shopping list)</p>
-      ${
-        topCats.length
-          ? topCats.map(([cat, total]) => `
-              <div class="flex items-center justify-between text-sm font-semibold text-slate-700 py-1">
-                <span>${escapeHtml(cat)}</span>
-                <span>${formatMoney(total)}</span>
-              </div>
-            `).join("")
-          : `<p class="text-sm text-slate-500">Add categories + prices in items to see this.</p>`
-      }
-    </div>
-  `;
-
-  document.getElementById("btn-save-budget").onclick = () => {
-    const val = document.getElementById("inp-budget").value;
-    onSaveBudget(val);
-    showToast("Budget saved ✅", "success");
+  sel.onchange = () => {
+    lang = sel.value;
+    setLang(lang);
+    t = translations[lang];
+    setHeaderText(t);
+    setOnlineState(t);
+    draw();
   };
-
-  document.getElementById("btn-reset-month").onclick = () => onResetSpent();
-  document.getElementById("btn-reset-all").onclick = () => onResetAll();
 }
