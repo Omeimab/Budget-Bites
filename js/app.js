@@ -1,4 +1,4 @@
-import { translations, detectDefaultLang, setLang } from "./i18n.js";
+ import { translations, detectDefaultLang, setLang } from "./i18n.js";
 import { initFirebase, signInAndSync, saveData } from "./firebase.js";
 import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
 import { getSmartRecipe } from "./ai_mock.js";
@@ -10,7 +10,7 @@ let inventory = [];
 let shoppingList = [];
 let historicalWaste = 0;
 
-// ✅ NEW: monthly budget tracking
+//  NEW: monthly budget tracking
 let monthlyBudget = 0;
 let monthSpent = 0;
 
@@ -25,6 +25,67 @@ setupLanguageDropdown();
 
 // navigation buttons
 document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
+document.…
+[09:10, 23.2.2026] Omeima: import { translations, detectDefaultLang, setLang } from "./i18n.js";
+import { initFirebase, signInAndSync, saveData } from "./firebase.js";
+import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
+import { getSmartRecipe } from "./ai_mock.js";
+
+// ----------------------------
+// State
+// ----------------------------
+let activeTab = "inventory";
+let userId = null;
+
+let inventory = [];
+let shoppingList = [];
+let historicalWaste = 0;
+
+let monthlyBudget = 0;
+let monthSpent = 0;
+
+let lang = detectDefaultLang();
+let t = translations[lang];
+
+const { db, auth } = initFirebase();
+
+// ----------------------------
+// Helpers (toast)
+// ----------------------------
+function toast(message, type = "success") {
+  const root = document.getElementById("toast-root");
+  if (!root) return;
+
+  const el = document.createElement("div");
+  const base =
+    "px-4 py-3 rounded-xl shadow-lg text-sm font-bold border flex items-center gap-2";
+  const styles =
+    type === "error"
+      ? "bg-rose-50 border-rose-200 text-rose-800"
+      : type === "warn"
+      ? "bg-amber-50 border-amber-200 text-amber-800"
+      : "bg-emerald-50 border-emerald-200 text-emerald-800";
+
+  el.className = ${base} ${styles};
+  el.textContent = message;
+
+  root.appendChild(el);
+
+  setTimeout(() => {
+    el.style.opacity = "0";
+    el.style.transition = "opacity .2s";
+    setTimeout(() => el.remove(), 250);
+  }, 1800);
+}
+
+// ----------------------------
+// Init header + language dropdown
+// ----------------------------
+setHeaderText(t);
+setupLanguageDropdown();
+
+// navigation buttons
+document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
 document.getElementById("nav-shopping").onclick = () => switchTab("shopping");
 document.getElementById("nav-planner").onclick = () => switchTab("planner");
 document.getElementById("nav-reports").onclick = () => switchTab("reports");
@@ -32,6 +93,9 @@ document.getElementById("nav-reports").onclick = () => switchTab("reports");
 // modal buttons
 document.getElementById("btn-cancel").onclick = closeModal;
 
+// ----------------------------
+// Form submit (Add/Edit)
+// ----------------------------
 document.getElementById("item-form").onsubmit = async (e) => {
   e.preventDefault();
 
@@ -42,8 +106,12 @@ document.getElementById("item-form").onsubmit = async (e) => {
   const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
   const unit = document.getElementById("item-unit").value.trim();
 
-  // ✅ price from modal
-  const price = parseFloat(document.getElementById("inp-price")?.value || "0");
+  // ✅ total price
+  const priceRaw = document.getElementById("inp-price")?.value ?? "";
+  const price = Number(priceRaw);
+
+  // ✅ category (optional)
+  const category = document.getElementById("inp-category")?.value ?? "";
 
   if (!name) return;
 
@@ -57,9 +125,24 @@ document.getElementById("item-form").onsubmit = async (e) => {
       expiry = d.toISOString().split("T")[0];
     }
 
-    upsert(inventory, { id, name, quantity, unit, expiry, price: Number.isFinite(price) ? price : 0 });
+    upsert(inventory, {
+      id,
+      name,
+      quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      unit,
+      expiry,
+      price: Number.isFinite(price) && price >= 0 ? price : 0,
+      category
+    });
   } else {
-    upsert(shoppingList, { id, name, quantity, unit, price: Number.isFinite(price) ? price : 0 });
+    upsert(shoppingList, {
+      id,
+      name,
+      quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      unit,
+      price: Number.isFinite(price) && price >= 0 ? price : 0,
+      category
+    });
   }
 
   await persist();
@@ -67,6 +150,9 @@ document.getElementById("item-form").onsubmit = async (e) => {
   draw();
 };
 
+// ----------------------------
+// CRUD helpers
+// ----------------------------
 function upsert(arr, item) {
   const idx = arr.findIndex(x => x.id === item.id);
   if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
@@ -78,26 +164,9 @@ function switchTab(tab) {
   draw();
 }
 
-function draw() {
-  renderUI({
-    t,
-    lang,
-    activeTab,
-    inventory,
-    shoppingList,
-    historicalWaste,
-    monthlyBudget,
-    monthSpent,
-    onAdd: (type) => openModal(t, type, null),
-    onMove: moveItem,
-    onDelete: deleteItem,
-    onSuggest: showSuggestions,
-    onRecipe: showRecipe,
-    onSaveBudget: saveBudget,
-    onResetSpent: resetSpent
-  });
-}
-
+// ----------------------------
+// Waste processing
+// ----------------------------
 function processWaste() {
   const now = new Date();
   const before = inventory.length;
@@ -113,6 +182,9 @@ function processWaste() {
   if (inventory.length !== before) persist();
 }
 
+// ----------------------------
+// Persistence
+// ----------------------------
 async function persist() {
   await saveData({
     db,
@@ -125,37 +197,89 @@ async function persist() {
   });
 }
 
+// ----------------------------
+// Budget
+// ----------------------------
 async function saveBudget(val) {
   const n = Number(val || 0);
   monthlyBudget = Number.isFinite(n) && n >= 0 ? n : 0;
   await persist();
+  toast(t.budget_saved || "Budget saved ✅");
   draw();
 }
 
 async function resetSpent() {
-  if (!confirm("Reset monthly spending to €0.00?")) return;
+  if (!confirm(t.reset_spent_confirm || "Reset monthly spending to €0.00?")) return;
   monthSpent = 0;
   await persist();
+  toast(t.reset_done || "Reset done ✅", "warn");
   draw();
 }
 
-// ✅ FIXED BOUGHT behavior + spending calculation
+// ✅ General reset (everything)
+async function resetAll() {
+  if (!confirm(t.reset_all_confirm || "Reset EVERYTHING (inventory, list, budget, spending, waste)?")) return;
+
+  inventory = [];
+  shoppingList = [];
+  historicalWaste = 0;
+  monthlyBudget = 0;
+  monthSpent = 0;
+
+  await persist();
+  toast(t.reset_all_done || "Everything reset ✅", "warn");
+  draw();
+}
+
+// Clear all inventory / shopping
+async function clearAll(type) {
+  const msg =
+    type === "inventory"
+      ? (t.clear_inv_confirm || "Clear ALL inventory items?")
+      : (t.clear_shop_confirm || "Clear ALL shopping list items?");
+
+  if (!confirm(msg)) return;
+
+  if (type === "inventory") inventory = [];
+  else shoppingList = [];
+
+  await persist();
+  toast(t.cleared || "Cleared ✅", "warn");
+  draw();
+}
+
+//  Empty item (consume it)
+async function emptyItem(id) {
+  const item = inventory.find(x => x.id === id);
+  if (!item) return;
+
+  const msg = (t.empty_confirm || "Mark as empty/consumed? This will remove the item from inventory.");
+  if (!confirm(msg)) return;
+
+  inventory = inventory.filter(x => x.id !== id);
+
+  await persist();
+  toast(t.empty_done || "Removed from inventory ✅");
+  draw();
+}
+
+// ----------------------------
+// Move logic (Bought / Need again)
+// ----------------------------
 async function moveItem(id, from) {
   if (from === "shopping") {
     const i = shoppingList.find(x => x.id === id);
     if (!i) return;
 
+    // remove from shopping
     shoppingList = shoppingList.filter(x => x.id !== id);
 
-    // add to inventory (NO modal popup anymore)
+    // add to inventory (no modal)
     const moved = { ...i, expiry: "PENDING" };
     inventory.push(moved);
 
-    // ✅ add spending = price * quantity
-    const price = Number(i.price || 0);
-    const qty = Number(i.quantity || 1);
-    const cost = (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
-
+    //  total price counted once (NOT price * quantity)
+    const cost = Number.isFinite(Number(i.price)) ? Number(i.price) : 0;
     monthSpent = Number(monthSpent || 0) + cost;
 
     await persist();
@@ -173,13 +297,17 @@ async function moveItem(id, from) {
     name: i.name,
     quantity: i.quantity,
     unit: i.unit,
-    price: Number(i.price || 0)
+    price: Number(i.price || 0),
+    category: i.category || ""
   });
 
   await persist();
   draw();
 }
 
+// ----------------------------
+// Delete (both lists)
+// ----------------------------
 async function deleteItem(type, id) {
   if (!confirm(t.delete_confirm || "Delete this item?")) return;
 
@@ -187,13 +315,23 @@ async function deleteItem(type, id) {
   else shoppingList = shoppingList.filter(i => i.id !== id);
 
   await persist();
+  toast(t.deleted || "Deleted ✅", "warn");
   draw();
 }
 
+// ----------------------------
+// AI mock
+// ----------------------------
 function showSuggestions() {
   const out = document.getElementById("ai-out");
   const names = shoppingList.map(i => i.name);
-  out.innerText = getSmartSuggestions(lang, names);
+
+  // keep your existing function if you have it in your project
+  if (typeof getSmartSuggestions === "function") {
+    out.innerText = getSmartSuggestions(lang, names);
+  } else {
+    out.innerText = "Suggestions module not found.";
+  }
 }
 
 function showRecipe() {
@@ -202,7 +340,39 @@ function showRecipe() {
   out.innerText = getSmartRecipe(lang, names);
 }
 
+// ----------------------------
+// Draw UI
+// ----------------------------
+function draw() {
+  renderUI({
+    t,
+    lang,
+    activeTab,
+    inventory,
+    shoppingList,
+    historicalWaste,
+    monthlyBudget,
+    monthSpent,
+
+    onAdd: (type) => openModal(t, type, null),
+    onMove: moveItem,
+    onDelete: deleteItem,
+    onSuggest: showSuggestions,
+    onRecipe: showRecipe,
+
+    onSaveBudget: saveBudget,
+    onResetSpent: resetSpent,
+
+    //  NEW callbacks (need UI buttons)
+    onClearAll: clearAll,      // (type) => clearAll(type)
+    onResetAll: resetAll,      // () => resetAll()
+    onEmpty: emptyItem         // (id) => emptyItem(id)
+  });
+}
+
+// ----------------------------
 // Auth + sync
+// ----------------------------
 signInAndSync({
   db, auth,
   onReady: (uid) => {
@@ -222,6 +392,9 @@ signInAndSync({
   }
 });
 
+// ----------------------------
+// Language
+// ----------------------------
 function setupLanguageDropdown() {
   const sel = document.getElementById("lang-select");
   sel.value = lang;
