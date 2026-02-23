@@ -43,7 +43,7 @@ export function getSmartSuggestions(lang, shoppingNames = []) {
 
   return suggestions
     .slice(0, 3)
-    .map((s, i) => ${i + 1}) ${s})
+    .map((s, i) => $,{i + 1}) $,{s}),
     .join("\n");
 }
 

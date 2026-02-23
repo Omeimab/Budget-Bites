@@ -27,23 +27,29 @@ export function showToast(message, type = "success") {
   if (!container) return;
 
   const el = document.createElement("div");
-  el.className =
-    "px-4 py-3 rounded-xl shadow-lg text-sm font-bold border " +
-    (type === "error"
-      ? "bg-rose-50 text-rose-700 border-rose-200"
+  const base =
+    "px-4 py-3 rounded-xl shadow-lg text-sm font-bold border bg-white flex items-center gap-2";
+  const variant =
+    type === "error"
+      ? "border-rose-200 text-rose-700"
       : type === "warn"
-      ? "bg-amber-50 text-amber-800 border-amber-200"
-      : "bg-emerald-50 text-emerald-700 border-emerald-200");
+      ? "border-amber-200 text-amber-800"
+      : "border-emerald-200 text-emerald-700";
 
+  el.className = ${base} ${variant};
   el.textContent = message;
+
   container.appendChild(el);
 
+  // fade out
   setTimeout(() => {
     el.style.opacity = "0";
     el.style.transition = "opacity 0.25s ease";
-  }, 2400);
+  }, 2200);
 
-  setTimeout(() => el.remove(), 2700);
+  setTimeout(() => {
+    el.remove();
+  }, 2600);
 }
 
 export function openModal(t, type, item) {
@@ -59,9 +65,9 @@ export function openModal(t, type, item) {
   document.getElementById("lbl-unit").innerText = t.unit;
   document.getElementById("lbl-expiry").innerText = t.expiry_logic;
 
-  // Price label + existing value
+  // Price label: explicitly total
   const lblPrice = document.getElementById("lbl-price");
-  if (lblPrice) lblPrice.innerText = (t.price_total || t.price || "Total price (€)");
+  if (lblPrice) lblPrice.innerText = t.price_total || "Total Price (€)";
 
   const inpPrice = document.getElementById("inp-price");
   if (inpPrice) inpPrice.value = item?.price ?? "";
@@ -87,29 +93,28 @@ export function renderUI({
   historicalWaste,
   monthlyBudget,
   monthSpent,
+  monthPurchases,
   onAdd,
   onMove,
   onDelete,
+  onEmpty,
   onSuggest,
   onRecipe,
   onSaveBudget,
   onResetSpent,
   onClearAllInventory,
   onClearAllShopping,
-  onEmptyItem
+  onResetAll
 }) {
   const root = document.getElementById("content-area");
   setActiveTab(activeTab);
 
   const spent = Number(monthSpent || 0);
   const budget = Number(monthlyBudget || 0);
-
-  const remainingRaw = budget - spent;
-  const remaining = Math.max(0, remainingRaw);
-
+  const remaining = budget > 0 ? budget - spent : 0;
   const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+
   const overBy = budget > 0 ? Math.max(0, spent - budget) : 0;
-  const isOver = budget > 0 && spent > budget;
 
   const budgetWidget = () => `
     <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
@@ -124,20 +129,32 @@ export function renderUI({
 
       <div class="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
         <span>${pct}% used</span>
-        <span>${budget > 0 ? ${formatMoney(remaining)} remaining : Set a budget to track remaining}</span>
+        <span>
+          ${
+            budget > 0
+              ? (remaining >= 0
+                  ? ${formatMoney(remaining)} remaining
+                  : ${formatMoney(overBy)} over budget)
+              : Set a budget to track remaining
+          }
+        </span>
       </div>
 
       ${
-        budget > 0 && isOver
-          ? `
-        <div class="mt-3 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-          ❌ You exceeded your budget by ${formatMoney(overBy)}.
-        </div>
-      `
-          : budget > 0 && remaining <= budget * 0.1
+        budget > 0 && remaining <= budget * 0.1 && remaining >= 0
           ? `
         <div class="mt-3 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
           ⚠️ Watch out: you're close to your monthly budget.
+        </div>
+      `
+          : ""
+      }
+
+      ${
+        budget > 0 && remaining < 0
+          ? `
+        <div class="mt-3 text-xs font-black text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+          ❌ You exceeded your monthly budget.
         </div>
       `
           : ""
@@ -158,7 +175,7 @@ export function renderUI({
         </button>
       </div>
 
-      <div class="mt-3 flex items-center gap-4">
+      <div class="mt-3 flex flex-wrap gap-3">
         <button id="btn-reset-month"
           class="text-xs text-red-500 font-bold hover:underline">
           Reset monthly spending
@@ -166,13 +183,12 @@ export function renderUI({
 
         <button id="btn-reset-all"
           class="text-xs text-slate-500 font-bold hover:underline">
-          Reset all (inventory + shopping + budget)
+          Reset ALL data
         </button>
       </div>
 
       <p class="mt-2 text-xs text-slate-500">
-        Tip: Add prices to Shopping List items and click BOUGHT to track spending automatically.
-        (Price is the TOTAL for the item.)
+        Tip: Add total prices to Shopping List items and click BOUGHT to track spending automatically.
       </p>
     </div>
   `;
@@ -183,13 +199,11 @@ export function renderUI({
       <div class="card">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-2xl font-bold text-gray-800">${t.nav_inv}</h2>
-          <div class="flex gap-3">
-            <button id="btn-clear-inv"
-              class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold hover:bg-slate-200">
+          <div class="flex gap-2">
+            <button id="btn-clear-inv" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold">
               Clear all
             </button>
-            <button id="btn-add-inv"
-              class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">
+            <button id="btn-add-inv" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-emerald-600 transition-colors">
               + ${t.add}
             </button>
           </div>
@@ -207,18 +221,9 @@ export function renderUI({
                   </p>
                 </div>
                 <div class="flex gap-3 items-center">
-                  <button data-empty="${i.id}"
-                    class="text-xs font-bold text-slate-500 uppercase tracking-tighter hover:underline">
-                    Empty
-                  </button>
-                  <button data-move="${i.id}"
-                    class="text-xs font-bold text-amber-600 uppercase tracking-tighter">
-                    ${t.move_need}
-                  </button>
-                  <button data-del="${i.id}"
-                    class="text-xs text-red-400 font-bold uppercase tracking-tighter">
-                    X
-                  </button>
+                  <button data-move="${i.id}" class="text-xs font-bold text-amber-600 uppercase tracking-tighter">${t.move_need}</button>
+                  <button data-empty="${i.id}" class="text-xs font-bold text-rose-600 uppercase tracking-tighter">EMPTY</button>
+                  <button data-del="${i.id}" class="text-xs text-red-400 font-bold uppercase tracking-tighter">X</button>
                 </div>
               </div>
             ).join("") || `<p class="text-center italic text-gray-400 py-10 font-medium">${t.empty_inv}</p>
@@ -228,12 +233,11 @@ export function renderUI({
     `;
 
     document.getElementById("btn-add-inv").onclick = () => onAdd("inventory");
-    document.getElementById("btn-clear-inv").onclick = () => onClearAllInventory?.();
+    document.getElementById("btn-clear-inv").onclick = () => onClearAllInventory();
 
     root.querySelectorAll("[data-move]").forEach(btn => btn.onclick = () => onMove(btn.dataset.move, "inventory"));
+    root.querySelectorAll("[data-empty]").forEach(btn => btn.onclick = () => onEmpty(btn.dataset.empty));
     root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("inventory", btn.dataset.del));
-    root.querySelectorAll("[data-empty]").forEach(btn => btn.onclick = () => onEmptyItem?.(btn.dataset.empty));
-
     return;
   }
 
@@ -243,13 +247,11 @@ export function renderUI({
       <div class="card">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-2xl font-bold text-gray-800">${t.nav_shop}</h2>
-          <div class="flex gap-3">
-            <button id="btn-clear-shop"
-              class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold hover:bg-slate-200">
+          <div class="flex gap-2">
+            <button id="btn-clear-shop" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold">
               Clear all
             </button>
-            <button id="btn-add-shop"
-              class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">
+            <button id="btn-add-shop" class="bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-md">
               + ${t.add}
             </button>
           </div>
@@ -266,17 +268,15 @@ export function renderUI({
                     ${escapeHtml(i.name)} (${i.quantity} ${escapeHtml(i.unit || "")})
                   </p>
                   <p class="text-xs text-slate-500 font-semibold">
-                    ${i.price != null && i.price !== "" ? Total price: ${formatMoney(i.price)} : "No price yet"}
+                    ${i.price != null && i.price !== "" ? Total: ${formatMoney(i.price)} : "No price yet"}
                   </p>
                 </div>
 
-                <div class="flex items-center gap-2">
-                  <button data-del="${i.id}"
-                    class="px-3 py-1.5 rounded-lg text-xs font-black bg-slate-200 text-slate-700 hover:bg-slate-300">
+                <div class="flex gap-2 items-center">
+                  <button data-del="${i.id}" class="text-xs font-black text-slate-500 hover:underline">
                     Remove
                   </button>
-                  <button data-move="${i.id}"
-                    class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">
+                  <button data-move="${i.id}" class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-sm uppercase tracking-tighter">
                     ${t.move_bought}
                   </button>
                 </div>
@@ -286,8 +286,7 @@ export function renderUI({
         </div>
 
         <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-100 shadow-inner">
-          <button id="btn-suggest"
-            class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-black mb-2 uppercase tracking-widest shadow-md">
+          <button id="btn-suggest" class="text-xs bg-indigo-600 text-white px-4 py-2 rounded font-black mb-2 uppercase tracking-widest shadow-md">
             ${t.sugg_btn}
           </button>
           <div id="ai-out" class="text-xs italic text-indigo-700 leading-relaxed font-medium">${t.sugg_info}</div>
@@ -296,7 +295,7 @@ export function renderUI({
     `;
 
     document.getElementById("btn-add-shop").onclick = () => onAdd("shopping");
-    document.getElementById("btn-clear-shop").onclick = () => onClearAllShopping?.();
+    document.getElementById("btn-clear-shop").onclick = () => onClearAllShopping();
 
     root.querySelectorAll("[data-move]").forEach(btn => btn.onclick = () => onMove(btn.dataset.move, "shopping"));
     root.querySelectorAll("[data-del]").forEach(btn => btn.onclick = () => onDelete("shopping", btn.dataset.del));
@@ -309,7 +308,7 @@ export function renderUI({
     };
 
     document.getElementById("btn-reset-month").onclick = () => onResetSpent();
-    document.getElementById("btn-reset-all").onclick = () => onResetSpent(true);
+    document.getElementById("btn-reset-all").onclick = () => onResetAll();
 
     return;
   }
@@ -320,19 +319,23 @@ export function renderUI({
       <div class="card text-center py-10">
         <h2 class="text-2xl font-bold mb-4 text-gray-800">${t.nav_plan}</h2>
         <p class="text-gray-500 mb-8 max-w-sm mx-auto font-medium">${t.recipe_info}</p>
-        <button id="btn-recipe"
-          class="bg-purple-600 text-white px-10 py-3 rounded-full font-extrabold shadow-lg shadow-purple-200 hover:scale-105 transition-transform uppercase tracking-widest text-xs">
+        <button id="btn-recipe" class="bg-purple-600 text-white px-10 py-3 rounded-full font-extrabold shadow-lg shadow-purple-200 hover:scale-105 transition-transform uppercase tracking-widest text-xs">
           ${t.recipe_btn}
         </button>
-        <div id="ai-recipe-out"
-          class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div>
+        <div id="ai-recipe-out" class="mt-8 p-6 bg-slate-50 text-left text-sm whitespace-pre-wrap rounded-2xl border-2 border-slate-100 leading-relaxed text-slate-700"></div>
       </div>
     `;
     document.getElementById("btn-recipe").onclick = () => onRecipe();
     return;
   }
 
-  // DASHBOARD
+  // DASHBOARD (also show top 3 purchases this month)
+  const purchases = Array.isArray(monthPurchases) ? monthPurchases : [];
+  const top3 = purchases
+    .slice()
+    .sort((a, b) => (b.cost || 0) - (a.cost || 0))
+    .slice(0, 3);
+
   root.innerHTML = `
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
       <div class="card text-center bg-rose-50 border-2 border-rose-100 shadow-none">
@@ -348,6 +351,24 @@ export function renderUI({
     <div class="mt-6">
       ${budgetWidget()}
     </div>
+
+    <div class="mt-6 card">
+      <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Top spending (this month)</p>
+      ${
+        top3.length === 0
+          ? <p class="text-sm text-slate-400 italic">No purchases tracked yet.</p>
+          : `
+            <div class="space-y-2">
+              ${top3.map(p => `
+                <div class="flex items-center justify-between border rounded-xl px-4 py-3">
+                  <div class="text-sm font-bold text-slate-700">${escapeHtml(p.name || "Item")}</div>
+                  <div class="text-sm font-black text-slate-800">${formatMoney(p.cost || 0)}</div>
+                </div>
+              `).join("")}
+            </div>
+          `
+      }
+    </div>
   `;
 
   document.getElementById("btn-save-budget").onclick = () => {
@@ -356,7 +377,7 @@ export function renderUI({
   };
 
   document.getElementById("btn-reset-month").onclick = () => onResetSpent();
-  document.getElementById("btn-reset-all").onclick = () => onResetSpent(true);
+  document.getElementById("btn-reset-all").onclick = () => onResetAll();
 }
 
 function formatMoney(v) {
