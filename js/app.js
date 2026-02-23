@@ -214,18 +214,13 @@ async function moveItem(id, from) {
   draw();
 }
 
-// “EMPTY” means: user used/finished item; we remove it.
-// To avoid "lost": we count it as waste only if you want.
-// Here: we count it as waste because it’s leaving inventory without “bought again” logic.
 async function emptyItem(id) {
   const i = inventory.find(x => x.id === id);
   if (!i) return;
 
-  if (!confirm(Mark "${i.name}" as empty? (It will be removed))) return;
+  if (!confirm(`Mark "${i.name}" as empty? (It will be removed)`)) return;
 
   inventory = inventory.filter(x => x.id !== id);
-
-  // If you prefer NOT to count as waste, delete the next line:
   historicalWaste += 1;
 
   await persist();
@@ -295,6 +290,7 @@ signInAndSync({
 
 function setupLanguageDropdown() {
   const sel = document.getElementById("lang-select");
+  if (!sel) return;
   sel.value = lang;
 
   sel.onchange = () => {
