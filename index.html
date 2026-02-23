@@ -14,11 +14,14 @@
     .card { background-color: white; border-radius: 16px; box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
     .loader { border: 3px solid #f3f3f3; border-top: 3px solid #10b981; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
     @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+    
+    /* Visualization bars for the dashboard categories */
+    .cat-bar-bg { width: 100%; background-color: #f1f5f9; height: 8px; border-radius: 999px; margin-top: 4px; }
+    .cat-bar-fill { height: 100%; border-radius: 999px; background-color: #10b981; transition: width 0.6s ease-out; }
   </style>
 </head>
 
 <body class="min-h-screen p-4 md:p-8">
-  <!-- Toasts -->
   <div id="toast-root" class="fixed top-4 right-4 z-[9999] space-y-2"></div>
 
   <div class="max-w-6xl mx-auto">
@@ -27,7 +30,7 @@
       <div class="flex items-center justify-center gap-3">
         <h1 class="text-4xl font-extrabold text-gray-800">Budget Bites 🍽️</h1>
 
-        <select id="lang-select" class="text-xs font-bold border rounded-xl px-2 py-1 bg-white shadow-sm">
+        <select id="lang-select" class="text-xs font-bold border rounded-xl px-2 py-1 bg-white shadow-sm cursor-pointer">
           <option value="it">IT</option>
           <option value="de">DE</option>
           <option value="en">EN</option>
@@ -59,7 +62,6 @@
     </main>
   </div>
 
-  <!-- Modal -->
   <div id="modal-container" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
       <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800"></h3>
@@ -84,38 +86,36 @@
           </div>
         </div>
 
-        <!-- Total price -->
         <div class="mt-3">
-          <label id="lbl-price" class="text-sm font-semibold block">Total price (€)</label>
-          <input id="inp-price" type="number" step="0.01" min="0" class="w-full mt-1 p-2 border rounded-lg" placeholder="e.g. 2.99" />
-          <p class="text-xs text-gray-400 mt-1">Tip: enter the total price for this item (not per unit).</p>
+          <label id="lbl-price" class="text-sm font-semibold block"></label>
+          <input id="inp-price" type="number" step="0.01" min="0" class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="e.g. 2.99" />
+          <p id="tip-price" class="text-xs text-gray-400 mt-1"></p>
         </div>
 
-        <!-- Category -->
         <div class="mt-3">
-          <label id="lbl-category" class="text-sm font-semibold block">Category</label>
-          <select id="inp-category" class="w-full mt-1 p-2 border rounded-lg">
-            <option value="">—</option>
-            <option value="dairy">Dairy</option>
-            <option value="dry">Dry food</option>
-            <option value="meat">Meat/Fish</option>
-            <option value="produce">Fruit & Veg</option>
-            <option value="frozen">Frozen</option>
-            <option value="drinks">Drinks</option>
-            <option value="snacks">Snacks</option>
-            <option value="other">Other</option>
+          <label id="lbl-category" class="text-sm font-semibold block"></label>
+          <select id="inp-category" class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer">
+            <option value="" id="opt-none">—</option>
+            <option value="dairy" id="opt-dairy"></option>
+            <option value="dry" id="opt-dry"></option>
+            <option value="meat" id="opt-meat"></option>
+            <option value="produce" id="opt-produce"></option>
+            <option value="frozen" id="opt-frozen"></option>
+            <option value="drinks" id="opt-drinks"></option>
+            <option value="snacks" id="opt-snacks"></option>
+            <option value="other" id="opt-other"></option>
           </select>
-          <p class="text-xs text-gray-400 mt-1">Used for dashboard “top spending categories”.</p>
+          <p id="tip-category" class="text-xs text-gray-400 mt-1"></p>
         </div>
 
-        <div id="expiry-field" class="hidden pt-4 border-t border-dashed">
-          <label id="lbl-expiry" class="block text-xs font-black text-emerald-600 uppercase mb-2"></label>
-          <input type="number" id="item-shelf-life" class="w-full rounded-xl border-emerald-100 bg-emerald-50 p-3 border">
+        <div id="expiry-date-container" class="mt-3 pt-4 border-t border-dashed">
+          <label id="lbl-expiry-date" class="text-sm font-semibold block text-gray-700"></label>
+          <input type="date" id="item-expiry-date" class="w-full mt-1 p-2 border rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
         </div>
 
         <div class="flex justify-end space-x-3 pt-6">
-          <button type="button" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl">Cancel</button>
-          <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl shadow-lg shadow-emerald-100">Save</button>
+          <button type="button" id="btn-cancel" class="px-6 py-2 font-bold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
+          <button type="submit" id="btn-save" class="px-6 py-2 font-bold text-white bg-emerald-500 rounded-xl shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-colors">Save</button>
         </div>
       </form>
     </div>
