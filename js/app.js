@@ -1,609 +1,176 @@
-import { translations, detectDefaultLang, setLang } from "./i18n.js";
-import { initFirebase, signInAndSync, saveData } from "./firebase.js";
-import { setHeaderText, setOnlineState, openModal, closeModal, renderUI } from "./ui.js";
-import { getSmartRecipe, getSmartSuggestimport { translations, detectDefaultLang, setLang } from "./i18n.js";
-import { initFirebase, signInAndSync, saveData } from "./firebase.js";
-import { setHeaderText, setOnlineState, openModal, closeModal, renderUI, showToast } from "./ui.js";
-import { getSmartRecipe } from "./ai_mock.js";
-import { getSmartSuggestions } from "./ai_mock.js";
+import { loadState, saveState, defaultState, uid } from "./storage.js";
+import { setHeader, setStatus, setActiveTab, renderInventory, renderShopping, renderPlanner, renderReports, wireReportsBudget, openModal, closeModal, toast } from "./ui.js";
 
-let activeTab = "inventory";
-let userId = null;
+const state = loadState() ?? defaultState();
 
-let inventory = [];
-let shoppingList = [];
-let historicalWaste = 0;
+boot();
 
-let monthlyBudget = 0;
-let monthSpent = 0;
+function boot() {
+  // initial UI
+  document.getElementById("lang-select").value = state.lang;
+  setHeader(state.lang);
+  setActiveTab(state.activeTab);
+  setStatus(state.lang, "initializing");
 
-// NEW: track purchases for “what did I spend on most?”
-let monthPurchases = [];
+  // nav events
+  document.getElementById("nav-inventory").onclick = () => go("inventory");
+  document.getElementById("nav-shopping").onclick = () => go("shopping");
+  document.getElementById("nav-planner").onclick = () => go("planner");
+  document.getElementById("nav-reports").onclick = () => go("reports");
 
-let lang = detectDefaultLang();
-let t = translations[lang];
+  // lang switch
+  document.getElementById("lang-select").onchange = (e) => {
+    state.lang = e.target.value;
+    persist();
+    setHeader(state.lang);
+    render();
+  };
 
-const { db, auth } = initFirebase();
+  // close modal if click backdrop
+  document.getElementById("modal-container").onclick = (e) => {
+    if (e.target.id === "modal-container") closeModal();
+  };
 
-// initial header + language dropdown
-setHeaderText(t);
-setupLanguageDropdown();
+  // first render
+  render();
+  setStatus(state.lang, "ready");
+}
 
-// navigation buttons
-document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
-document.getElementById("nav-shopping").onclick = () => switchTab("shopping");
-document.getElementById("nav-planner").onclick = () => switchTab("planner");
-document.getElementById("nav-reports").onclick = () => switchTab("reports");
+function go(tab) {
+  state.activeTab = tab;
+  persist();
+  render();
+}
 
-// modal buttons
-document.getElementById("btn-cancel").onclick = closeModal;
+function persist() {
+  saveState(state);
+}
 
-document.getElementById("item-form").onsubmit = async (e) => {
-  e.preventDefault();
+function render() {
+  setHeader(state.lang);
+  setActiveTab(state.activeTab);
 
-  const type = document.getElementById("list-type").value;
-  const id = document.getElementById("item-id").value || crypto.randomUUID();
+  const handlers = {
+    openAdd: (listType) => {
+      openModal(
+        { lang: state.lang, mode: "add", listType, item: null },
+        (payload) => {
+          upsertItem(payload);
+          closeModal();
+          toast("Saved!");
+          render();
+        },
+        () => {}
+      );
+    },
 
-  const name = document.getElementById("item-name").value.trim();
-  const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
-  const unit = document.getElementById("item-unit").value.trim();
+    openEdit: (listType, id) => {
+      const item = findItem(listType, id);
+      if (!item) return;
+      openModal(
+        { lang: state.lang, mode: "edit", listType, item },
+        (payload) => {
+          upsertItem(payload);
+          closeModal();
+          toast("Updated!");
+          render();
+        },
+        () => {}
+      );
+    },
 
-  // total price (not per unit)
-  const price = parseFloat(document.getElementById("inp-price")?.value || "0");
-  const safePrice = Number.isFinite(price) && price >= 0 ? price : 0;
+    remove: (listType, id) => {
+      const arr = listType === "inventory" ? state.inventory : state.shopping;
+      const idx = arr.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        arr.splice(idx, 1);
+        persist();
+        toast("Deleted!");
+        render();
+      }
+    },
 
-  if (!name) return;
+    toggleBought: (id) => {
+      const it = state.shopping.find(x => x.id === id);
+      if (!it) return;
+      it.bought = !it.bought;
+      it.boughtAtTs = it.bought ? Date.now() : null;
+      persist();
+      render();
+    },
 
-  if (type === "inventory") {
-    const days = parseInt(document.getElementById("item-shelf-life").value || "", 10);
-    let expiry = "";
-
-    if (Number.isFinite(days) && days > 0) {
-      const d = new Date();
-      d.setDate(d.getDate() + days);
-      expiry = d.toISOString().split("T")[0];
+    updateTripBudget: (val) => {
+      state.settings.shoppingTripBudget = Number(val || 0);
+      persist();
+      render();
+      toast("Trip budget saved!");
     }
+  };
 
-    upsert(inventory, { id, name, quantity, unit, expiry, price: safePrice });
-  } else {
-    upsert(shoppingList, { id, name, quantity, unit, price: safePrice });
-  }
-
-  await persist();
-  closeModal();
-  draw();
-};
-
-function upsert(arr, item) {
-  const idx = arr.findIndex(x => x.id === item.id);
-  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
-  else arr.push(item);
-}
-
-function switchTab(tab) {
-  activeTab = tab;
-  draw();
-}
-
-function draw() {
-  renderUI({
-    t,
-    lang,
-    activeTab,
-    inventory,
-    shoppingList,
-    historicalWaste,
-    monthlyBudget,
-    monthSpent,
-    monthPurchases,
-    onAdd: (type) => openModal(t, type, null),
-    onMove: moveItem,
-    onDelete: deleteItem,
-    onEmpty: emptyItem,
-    onSuggest: showSuggestions,
-    onRecipe: showRecipe,
-    onSaveBudget: saveBudget,
-    onResetSpent: resetSpent,
-    onClearAllInventory: clearAllInventory,
-    onClearAllShopping: clearAllShopping,
-    onResetAll: resetAll
-  });
-}
-
-function processWaste() {
-  const now = new Date();
-  const before = inventory.length;
-
-  inventory = inventory.filter(i => {
-    if (i.expiry && i.expiry !== "PENDING" && new Date(i.expiry) < now) {
-      historicalWaste++;
-      return false;
-    }
-    return true;
-  });
-
-  if (inventory.length !== before) persist();
-}
-
-async function persist() {
-  await saveData({
-    db,
-    userId,
-    inventory,
-    shoppingList,
-    historicalWaste,
-    monthlyBudget,
-    monthSpent,
-    monthPurchases
-  });
-}
-
-async function saveBudget(val) {
-  const n = Number(val || 0);
-  monthlyBudget = Number.isFinite(n) && n >= 0 ? n : 0;
-  await persist();
-  showToast("✅ Budget saved", "success");
-  draw();
-}
-
-async function resetSpent() {
-  if (!confirm("Reset monthly spending to €0.00?")) return;
-  monthSpent = 0;
-  monthPurchases = [];
-  await persist();
-  showToast("Monthly spending reset", "warn");
-  draw();
-}
-
-async function resetAll() {
-  if (!confirm("Reset ALL data? This will clear inventory, shopping list, budget and stats.")) return;
-
-  inventory = [];
-  shoppingList = [];
-  historicalWaste = 0;
-  monthlyBudget = 0;
-  monthSpent = 0;
-  monthPurchases = [];
-
-  await persist();
-  showToast("All data reset", "warn");
-  draw();
-}
-
-// Shopping → Inventory (BOUGHT) + spending
-async function moveItem(id, from) {
-  if (from === "shopping") {
-    const i = shoppingList.find(x => x.id === id);
-    if (!i) return;
-
-    shoppingList = shoppingList.filter(x => x.id !== id);
-
-    // add to inventory
-    const moved = { ...i, expiry: "PENDING" };
-    inventory.push(moved);
-
-    // add spending = total price
-    const price = Number(i.price || 0);
-    const cost = Number.isFinite(price) ? price : 0;
-
-    monthSpent = Number(monthSpent || 0) + cost;
-    monthPurchases.push({
-      id: crypto.randomUUID(),
-      name: i.name,
-      cost,
-      ts: Date.now()
+  if (state.activeTab === "inventory") return renderInventory(state, handlers);
+  if (state.activeTab === "shopping") return renderShopping(state, handlers);
+  if (state.activeTab === "planner") return renderPlanner(state);
+  if (state.activeTab === "reports") {
+    renderReports(state);
+    wireReportsBudget((val) => {
+      state.settings.monthlyBudget = Number(val || 0);
+      persist();
+      toast("Monthly budget saved!");
+      render();
     });
+    return;
+  }
+}
 
-    await persist();
-    showToast("Added to inventory + tracked spending", "success");
-    draw();
+function findItem(listType, id) {
+  const arr = listType === "inventory" ? state.inventory : state.shopping;
+  return arr.find(x => x.id === id);
+}
+
+function upsertItem(payload) {
+  const listType = payload.listType;
+  const arr = listType === "inventory" ? state.inventory : state.shopping;
+
+  const now = Date.now();
+  const isNew = !payload.id;
+
+  const base = {
+    id: payload.id ?? uid(),
+    name: payload.name,
+    category: payload.category || "general",
+    qty: Number(payload.qty || 1),
+    unit: payload.unit || "",
+    priceTotal: Number(payload.priceTotal || 0),
+  };
+
+  if (listType === "inventory") {
+    const shelfDays = Number(payload.shelfLifeDays || 0);
+    const expiryTs = shelfDays > 0 ? (now + shelfDays * 24 * 60 * 60 * 1000) : null;
+
+    const item = {
+      ...base,
+      shelfLifeDays: shelfDays,
+      expiryTs,
+      createdAtTs: isNew ? now : (findItem("inventory", base.id)?.createdAtTs ?? now),
+    };
+
+    const idx = arr.findIndex(x => x.id === item.id);
+    if (idx >= 0) arr[idx] = item; else arr.push(item);
+    persist();
     return;
   }
 
-  // inventory → shopping (need again)
-  const i = inventory.find(x => x.id === id);
-  if (!i) return;
+  if (listType === "shopping") {
+    const prev = findItem("shopping", base.id);
+    const item = {
+      ...base,
+      bought: prev?.bought ?? false,
+      createdAtTs: isNew ? now : (prev?.createdAtTs ?? now),
+      boughtAtTs: prev?.boughtAtTs ?? null,
+    };
 
-  inventory = inventory.filter(x => x.id !== id);
-  shoppingList.push({
-    id: i.id,
-    name: i.name,
-    quantity: i.quantity,
-    unit: i.unit,
-    price: Number(i.price || 0)
-  });
-
-  await persist();
-  draw();
-}
-
-async function emptyItem(id) {
-  const i = inventory.find(x => x.id === id);
-  if (!i) return;
-
-  if (!confirm(`Mark "${i.name}" as empty? (It will be removed)`)) return;
-
-  inventory = inventory.filter(x => x.id !== id);
-  historicalWaste += 1;
-
-  await persist();
-  showToast("Item removed", "warn");
-  draw();
-}
-
-async function deleteItem(type, id) {
-  if (!confirm("Delete this item?")) return;
-
-  if (type === "inventory") inventory = inventory.filter(i => i.id !== id);
-  else shoppingList = shoppingList.filter(i => i.id !== id);
-
-  await persist();
-  showToast("Removed", "warn");
-  draw();
-}
-
-async function clearAllInventory() {
-  if (!confirm("Are you sure you want to clear ALL inventory items?")) return;
-  inventory = [];
-  await persist();
-  showToast("Inventory cleared", "warn");
-  draw();
-}
-
-async function clearAllShopping() {
-  if (!confirm("Are you sure you want to clear ALL shopping list items?")) return;
-  shoppingList = [];
-  await persist();
-  showToast("Shopping list cleared", "warn");
-  draw();
-}
-
-function showSuggestions() {
-  const out = document.getElementById("ai-out");
-  const names = shoppingList.map(i => i.name);
-  out.innerText = getSmartSuggestions(lang, names);
-}
-
-function showRecipe() {
-  const out = document.getElementById("ai-recipe-out");
-  const names = inventory.map(i => i.name);
-  out.innerText = getSmartRecipe(lang, names);
-}
-
-// Auth + sync
-signInAndSync({
-  db, auth,
-  onReady: (uid) => {
-    userId = uid;
-    setOnlineState(t);
-  },
-  onData: (d) => {
-    inventory = d.inventory || [];
-    shoppingList = d.shoppingList || [];
-    historicalWaste = d.historicalWaste || 0;
-
-    monthlyBudget = Number(d.monthlyBudget || 0);
-    monthSpent = Number(d.monthSpent || 0);
-    monthPurchases = Array.isArray(d.monthPurchases) ? d.monthPurchases : [];
-
-    processWaste();
-    draw();
+    const idx = arr.findIndex(x => x.id === item.id);
+    if (idx >= 0) arr[idx] = item; else arr.push(item);
+    persist();
   }
-});
-
-function setupLanguageDropdown() {
-  const sel = document.getElementById("lang-select");
-  if (!sel) return;
-  sel.value = lang;
-
-  sel.onchange = () => {
-    lang = sel.value;
-    setLang(lang);
-    t = translations[lang];
-    setHeaderText(t);
-    setOnlineState(t);
-    draw();
-  };
-}ions } from "./ai_mock.js";
-
-let activeTab = "inventory";
-let userId = null;
-
-let inventory = [];
-let shoppingList = [];
-let historicalWaste = 0;
-
-let monthlyBudget = 0;
-let monthSpent = 0;
-
-let lang = detectDefaultLang();
-let t = translations[lang];
-
-const { db, auth } = initFirebase();
-
-// ---------- init UI ----------
-setHeaderText(t);
-setupLanguageDropdown();
-
-document.getElementById("nav-inventory").onclick = () => switchTab("inventory");
-document.getElementById("nav-shopping").onclick = () => switchTab("shopping");
-document.getElementById("nav-planner").onclick = () => switchTab("planner");
-document.getElementById("nav-reports").onclick = () => switchTab("reports");
-
-document.getElementById("btn-cancel").onclick = closeModal;
-
-// ---------- modal submit ----------
-document.getElementById("item-form").onsubmit = async (e) => {
-  e.preventDefault();
-
-  const type = document.getElementById("list-type").value;
-  const id = document.getElementById("item-id").value || crypto.randomUUID();
-
-  const name = document.getElementById("item-name").value.trim();
-  const quantity = parseInt(document.getElementById("item-quantity").value || "1", 10);
-  const unit = document.getElementById("item-unit").value.trim();
-
-  // total price (not per unit)
-  const price = parseFloat(document.getElementById("inp-price")?.value || "0");
-
-  // category (optional)
-  const category = (document.getElementById("inp-category")?.value || "").trim();
-
-  if (!name) return;
-
-  if (type === "inventory") {
-    const days = parseInt(document.getElementById("item-shelf-life").value || "", 10);
-    let expiry = "";
-
-    if (Number.isFinite(days) && days > 0) {
-      const d = new Date();
-      d.setDate(d.getDate() + days);
-      expiry = d.toISOString().split("T")[0];
-    }
-
-    upsert(inventory, {
-      id,
-      name,
-      quantity: Number.isFinite(quantity) ? quantity : 1,
-      unit,
-      expiry,
-      price: Number.isFinite(price) ? price : 0,
-      category
-    });
-  } else {
-    upsert(shoppingList, {
-      id,
-      name,
-      quantity: Number.isFinite(quantity) ? quantity : 1,
-      unit,
-      price: Number.isFinite(price) ? price : 0,
-      category
-    });
-  }
-
-  await persist();
-  closeModal();
-  draw();
-};
-
-function upsert(arr, item) {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx >= 0) arr[idx] = { ...arr[idx], ...item };
-  else arr.push(item);
-}
-
-function switchTab(tab) {
-  activeTab = tab;
-  draw();
-}
-
-function draw() {
-  renderUI({
-    t,
-    lang,
-    activeTab,
-    inventory,
-    shoppingList,
-    historicalWaste,
-    monthlyBudget,
-    monthSpent,
-
-    onAdd: (type) => openModal(t, type, null),
-
-    onMove: moveItem,
-    onDelete: deleteItem,
-
-    // NEW
-    onDeleteShopping: deleteShoppingItem,
-    onClearInventory: clearInventory,
-    onClearShopping: clearShopping,
-    onResetAll: resetAll,
-
-    onSuggest: showSuggestions,
-    onRecipe: showRecipe,
-
-    onSaveBudget: saveBudget,
-    onResetSpent: resetSpent
-  });
-}
-
-// auto-waste processing (expired items)
-function processWaste() {
-  const now = new Date();
-  const before = inventory.length;
-
-  inventory = inventory.filter((i) => {
-    if (i.expiry && i.expiry !== "PENDING" && new Date(i.expiry) < now) {
-      historicalWaste++;
-      return false;
-    }
-    return true;
-  });
-
-  if (inventory.length !== before) persist();
-}
-
-async function persist() {
-  await saveData({
-    db,
-    userId,
-    inventory,
-    shoppingList,
-    historicalWaste,
-    monthlyBudget,
-    monthSpent
-  });
-}
-
-// ---------- budget ----------
-async function saveBudget(val) {
-  const n = Number(val || 0);
-  monthlyBudget = Number.isFinite(n) && n >= 0 ? n : 0;
-  await persist();
-  draw({ toast: "budget_saved" });
-}
-
-async function resetSpent() {
-  if (!confirm("Reset monthly spending to €0.00?")) return;
-  monthSpent = 0;
-  await persist();
-  draw({ toast: "spent_reset" });
-}
-
-// ---------- workflows ----------
-async function moveItem(id, from) {
-  // shopping → inventory (bought)
-  if (from === "shopping") {
-    const i = shoppingList.find((x) => x.id === id);
-    if (!i) return;
-
-    shoppingList = shoppingList.filter((x) => x.id !== id);
-
-    // moved item into inventory with expiry pending
-    inventory.push({ ...i, expiry: "PENDING" });
-
-    // spending add = total price * quantity
-    const price = Number(i.price || 0);
-    const qty = Number(i.quantity || 1);
-    const cost = (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
-
-    monthSpent = Number(monthSpent || 0) + cost;
-
-    await persist();
-    draw();
-    return;
-  }
-
-  // inventory → shopping (need again)
-  const i = inventory.find((x) => x.id === id);
-  if (!i) return;
-
-  inventory = inventory.filter((x) => x.id !== id);
-  shoppingList.push({
-    id: i.id,
-    name: i.name,
-    quantity: i.quantity,
-    unit: i.unit,
-    price: Number(i.price || 0),
-    category: i.category || ""
-  });
-
-  await persist();
-  draw();
-}
-
-// Inventory delete (with confirm)
-async function deleteItem(type, id) {
-  if (!confirm(t.delete_confirm || "Delete this item?")) return;
-
-  if (type === "inventory") inventory = inventory.filter((i) => i.id !== id);
-  else shoppingList = shoppingList.filter((i) => i.id !== id);
-
-  await persist();
-  draw();
-}
-
-// Shopping delete single item (NO “Bought” needed)
-async function deleteShoppingItem(id) {
-  if (!confirm("Remove this item from the shopping list?")) return;
-  shoppingList = shoppingList.filter((x) => x.id !== id);
-  await persist();
-  draw();
-}
-
-// Clear all inventory
-async function clearInventory() {
-  if (!confirm("Are you sure you want to clear ALL inventory items?")) return;
-  inventory = [];
-  await persist();
-  draw();
-}
-
-// Clear all shopping list
-async function clearShopping() {
-  if (!confirm("Are you sure you want to clear ALL shopping list items?")) return;
-  shoppingList = [];
-  await persist();
-  draw();
-}
-
-// Reset everything
-async function resetAll() {
-  if (!confirm("Reset EVERYTHING (inventory, shopping list, budget spent, waste)?")) return;
-  inventory = [];
-  shoppingList = [];
-  historicalWaste = 0;
-  monthlyBudget = 0;
-  monthSpent = 0;
-  await persist();
-  draw();
-}
-
-// ---------- AI mock ----------
-function showSuggestions() {
-  const out = document.getElementById("ai-out");
-  const names = shoppingList.map((i) => i.name);
-  out.innerText = getSmartSuggestions(lang, names);
-}
-
-function showRecipe() {
-  const out = document.getElementById("ai-recipe-out");
-  const names = inventory.map((i) => i.name);
-  out.innerText = getSmartRecipe(lang, names);
-}
-
-// ---------- auth + sync ----------
-signInAndSync({
-  db,
-  auth,
-  onReady: (uid) => {
-    userId = uid;
-    setOnlineState(t);
-  },
-  onData: (d) => {
-    inventory = d.inventory || [];
-    shoppingList = d.shoppingList || [];
-    historicalWaste = Number(d.historicalWaste || 0);
-
-    monthlyBudget = Number(d.monthlyBudget || 0);
-    monthSpent = Number(d.monthSpent || 0);
-
-    processWaste();
-    draw();
-  }
-});
-
-// ---------- language ----------
-function setupLanguageDropdown() {
-  const sel = document.getElementById("lang-select");
-  sel.value = lang;
-
-  sel.onchange = () => {
-    lang = sel.value;
-    setLang(lang);
-    t = translations[lang];
-    setHeaderText(t);
-    setOnlineState(t);
-    draw();
-  };
 }
